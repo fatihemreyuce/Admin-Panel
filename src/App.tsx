@@ -17,6 +17,10 @@ import TagListPage from "@/pages/tags/tag-list-page";
 import TagCreatePage from "@/pages/tags/tag-create-page";
 import TagDetailPage from "@/pages/tags/tag-detail-page";
 import TagEditPage from "@/pages/tags/tag-edit-page";
+import PostListPage from "@/pages/posts/post-list-page";
+import PostCreatePage from "@/pages/posts/post-create-page";
+import PostDetailPage from "@/pages/posts/post-detail-page";
+import PostEditPage from "@/pages/posts/post-edit-page";
 
 
 
@@ -43,6 +47,10 @@ function App() {
                 <Route path="/tags/create" element={<TagCreatePage />} />
                 <Route path="/tags/:id" element={<TagDetailPage />} />
                 <Route path="/tags/:id/edit" element={<TagEditPage />} />
+                <Route path="/posts" element={<PostListPage />} />
+                <Route path="/posts/create" element={<PostCreatePage />} />
+                <Route path="/posts/:id" element={<PostDetailPage />} />
+                <Route path="/posts/:id/edit" element={<PostEditPage />} />
               </Route>
             </Route>
           </Routes>
