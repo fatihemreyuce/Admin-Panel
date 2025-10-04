@@ -17,6 +17,15 @@ export interface BlogRequest {
     translations: TranslationRequest[];
     image: File;
 }
+
+export interface BlogCreateRequest {
+    slug: string;
+    categoryId: number;
+    tagIds: number[];
+    status: "DRAFT"|"PUBLISHED";
+    translations: TranslationRequest[];
+    image: File;
+}
 export interface BlogResponse {
     id: number;
     title: string;

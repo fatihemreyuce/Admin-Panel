@@ -1,5 +1,5 @@
 import { fetchClient } from "@/utils/fetch-client";
-import type { BlogRequest, BlogResponse, BlogListResponse } from "@/types/blog.types";
+import type { BlogRequest, BlogCreateRequest, BlogResponse, BlogListResponse } from "@/types/blog.types";
 
 export const getBlogs = (
     search:string,
@@ -14,8 +14,8 @@ export const getBlogById = (id:number) => {
     return fetchClient<void, BlogResponse>(`/posts/${id}`);
 }
 
-export const createBlog = (request: BlogRequest) => {
-    return fetchClient<BlogRequest, BlogResponse>(`/posts`, {
+export const createBlog = (request: BlogCreateRequest) => {
+    return fetchClient<BlogCreateRequest, BlogResponse>(`/posts`, {
         method: "POST",
         headers: {
             "Content-Type": "multipart/form-data",

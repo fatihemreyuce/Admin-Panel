@@ -27,7 +27,7 @@ import {
 	Folder,
 } from "lucide-react";
 import { z } from "zod";
-import type { BlogRequest, TranslationRequest } from "@/types/blog.types";
+import type { BlogRequest, BlogCreateRequest, TranslationRequest } from "@/types/blog.types";
 
 // Zod şeması
 const blogSchema = z.object({
@@ -64,6 +64,10 @@ export default function BlogCreatePage() {
 	const createBlogMutation = useCreateBlog();
 	const { data: categoriesResponse, isLoading: categoriesLoading, error: categoriesError } = useCategories("", 0, 100, "id,asc");
 	const { data: tagsResponse, isLoading: tagsLoading, error: tagsError } = useTags("", 0, 100, "id,asc");
+
+	// Debug için API yanıtlarını konsola yazdır
+	console.log("Categories Response:", categoriesResponse);
+	console.log("Tags Response:", tagsResponse);
 
 	const languages = [
 		{ code: "tr", name: "Türkçe" },
@@ -137,10 +141,13 @@ export default function BlogCreatePage() {
 
 		try {
 			// Prepare data for API - convert tags to tagIds array
-			const apiData = {
-				...formData,
+			const apiData: BlogCreateRequest = {
+				slug: formData.slug,
+				categoryId: formData.categoryId,
 				tagIds: formData.tags.map(tag => tag.id),
-				tags: undefined, // Remove tags array, we'll send tagIds instead
+				status: formData.status,
+				translations: formData.translations,
+				image: formData.image,
 			};
 			
 			await createBlogMutation.mutateAsync(apiData);
@@ -167,7 +174,7 @@ export default function BlogCreatePage() {
 
 	const handleInputChange = (
 		field: keyof BlogRequest,
-		value: string | number | TranslationRequest[] | any[]
+		value: string | number | TranslationRequest[] | any[] | File | null
 	) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 		if (field === "slug" && errors.slug) {
@@ -246,6 +253,31 @@ export default function BlogCreatePage() {
 	};
 
 	const isFormDisabled = createBlogMutation.isPending;
+
+	// Yardımcı fonksiyon: Çok dilli içerikten doğru dili al
+	const getLocalizedName = (item: any, fallbackPrefix: string = "Item") => {
+		if (!item) return `${fallbackPrefix}`;
+		
+		// Önce Türkçe çeviriyi dene
+		const turkishTranslation = item.translations?.find((t: any) => t.languageCode === 'tr');
+		if (turkishTranslation?.name) {
+			return turkishTranslation.name;
+		}
+		
+		// Türkçe yoksa İngilizce çeviriyi dene
+		const englishTranslation = item.translations?.find((t: any) => t.languageCode === 'en');
+		if (englishTranslation?.name) {
+			return englishTranslation.name;
+		}
+		
+		// Çeviri yoksa direkt name alanını dene
+		if (item.name) {
+			return item.name;
+		}
+		
+		// Hiçbiri yoksa fallback
+		return `${fallbackPrefix} ${item.id}`;
+	};
 
 	return (
 		<div className="min-h-screen w-full">
@@ -345,10 +377,10 @@ export default function BlogCreatePage() {
 														<SelectItem value="error" disabled>
 															Kategoriler yüklenemedi
 														</SelectItem>
-													) : categoriesResponse?.content?.length > 0 ? (
+													) : categoriesResponse?.content && categoriesResponse.content.length > 0 ? (
 														categoriesResponse.content.map((category: any) => (
 															<SelectItem key={category.id} value={category.id.toString()}>
-																{category.name}
+																{getLocalizedName(category, "Kategori")}
 															</SelectItem>
 														))
 													) : (
@@ -426,7 +458,7 @@ export default function BlogCreatePage() {
 										<Badge variant="outline" className="text-red-600">
 											Etiketler yüklenemedi
 										</Badge>
-									) : tagsResponse?.content?.length > 0 ? (
+									) : tagsResponse?.content && tagsResponse.content.length > 0 ? (
 										tagsResponse.content.map((tag: any) => {
 											const isSelected = formData.tags.some((t) => t.id === tag.id);
 											return (
@@ -440,7 +472,7 @@ export default function BlogCreatePage() {
 													}`}
 													onClick={() => handleTagToggle(tag)}
 												>
-													{tag.name}
+													{getLocalizedName(tag, "Etiket")}
 												</Badge>
 											);
 										})
