@@ -53,7 +53,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
 		},
 		{
 			name: "Blog Listesi",
-			href: "/blog",
+			href: "/blogs",
 			icon: BookOpen,
 			description: "Blog yönetimi",
 		},

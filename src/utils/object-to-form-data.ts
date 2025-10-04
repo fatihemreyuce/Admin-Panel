@@ -18,10 +18,16 @@ export function objectToFormData<
 			) {
 				(value as File[]).forEach((file) => formData.append(key, file));
 			} else if (Array.isArray(value)) {
-				// Handle arrays like tagIds
-				value.forEach((item, index) => {
-					formData.append(`${key}[${index}]`, String(item));
-				});
+				// Handle arrays - check if it's an array of objects (like translations)
+				if (value.length > 0 && typeof value[0] === "object" && !(value[0] instanceof File)) {
+					// For arrays of objects (like translations), stringify the entire array
+					formData.append(key, JSON.stringify(value));
+				} else {
+					// Handle arrays like tagIds
+					value.forEach((item, index) => {
+						formData.append(`${key}[${index}]`, String(item));
+					});
+				}
 			} else if (typeof value === "object") {
 				formData.append(key, JSON.stringify(value));
 			} else {

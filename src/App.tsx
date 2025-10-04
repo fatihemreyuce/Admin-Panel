@@ -1,6 +1,6 @@
 import { LoginProvider } from "@/providers/login-state-provider";
 import QueryProvider from "@/providers/query-client-provider";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import ProtectedRoute from "@/providers/protected-route";
 import LoginPage from "@/pages/login/login-page";
@@ -17,6 +17,10 @@ import TagListPage from "@/pages/tags/tag-list-page";
 import TagCreatePage from "@/pages/tags/tag-create-page";
 import TagDetailPage from "@/pages/tags/tag-detail-page";
 import TagEditPage from "@/pages/tags/tag-edit-page";
+import BlogListPage from "@/pages/blogs/blog-list-page";
+import BlogCreatePage from "@/pages/blogs/blog-create-page";
+import BlogDetailPage from "@/pages/blogs/blog-detail-page";
+import BlogEditPage from "@/pages/blogs/blog-edit-page";
 
 
 
@@ -45,6 +49,11 @@ function App() {
                 <Route path="/tags/create" element={<TagCreatePage />} />
                 <Route path="/tags/:id" element={<TagDetailPage />} />
                 <Route path="/tags/:id/edit" element={<TagEditPage />} />
+                <Route path="/blog" element={<Navigate to="/blogs" replace />} />
+                <Route path="/blogs" element={<BlogListPage />} />
+                <Route path="/blogs/create" element={<BlogCreatePage />} />
+                <Route path="/blogs/:id" element={<BlogDetailPage />} />
+                <Route path="/blogs/:id/edit" element={<BlogEditPage />} />
               </Route>
             </Route>
           </Routes>

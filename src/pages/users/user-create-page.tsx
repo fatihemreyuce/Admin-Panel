@@ -75,7 +75,7 @@ export default function UserCreatePage() {
           lastName?: string;
         } = {};
         
-        error.errors.forEach((err) => {
+        error.issues.forEach((err) => {
           const path = err.path.join('.');
           if (path === 'username') {
             newErrors.username = err.message;
@@ -373,57 +373,6 @@ export default function UserCreatePage() {
                 </Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg border-0 bg-white dark:bg-gray-800 w-full">
-          <CardHeader className="border-b border-gray-200 dark:border-gray-600">
-            <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
-              <Shield className="w-4 h-4" />
-              <span>Form Kuralları</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600">
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Zorunlu Alanlar:</h4>
-                <ul className="space-y-1">
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-                    <span>Kullanıcı adı (min 3 karakter)</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-                    <span>Ad ve soyad (min 2 karakter)</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-                    <span>Geçerli email formatı</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-                    <span>Şifre (min 6 karakter)</span>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Varsayılan Ayarlar:</h4>
-                <ul className="space-y-1">
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1 h-1 bg-green-500 rounded-full"></div>
-                    <span>Kullanıcı aktif durumda oluşturulur</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1 h-1 bg-green-500 rounded-full"></div>
-                    <span>Otomatik ID atanır</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <div className="w-1 h-1 bg-green-500 rounded-full"></div>
-                    <span>Oluşturulma tarihi kaydedilir</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

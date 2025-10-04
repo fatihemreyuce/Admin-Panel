@@ -442,57 +442,6 @@ export default function CategoryCreatePage() {
 						</form>
 					</CardContent>
 				</Card>
-
-				<Card className="shadow-lg border-0 bg-white dark:bg-gray-800 w-full">
-					<CardHeader className="border-b border-gray-200 dark:border-gray-600">
-						<CardTitle className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
-							<FileText className="w-4 h-4" />
-							<span>Form Kuralları</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600">
-							<div>
-								<h4 className="font-medium text-gray-900 mb-2">
-									Zorunlu Alanlar:
-								</h4>
-								<ul className="space-y-1">
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-										<span>Slug (küçük harf, rakam, tire)</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-										<span>En az bir çeviri</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-										<span>Dil kodu ve kategori adı</span>
-									</li>
-								</ul>
-							</div>
-							<div>
-								<h4 className="font-medium text-gray-900 mb-2">
-									Varsayılan Ayarlar:
-								</h4>
-								<ul className="space-y-1">
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-green-500 rounded-full"></div>
-										<span>Ana kategori (parentId: 0)</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-green-500 rounded-full"></div>
-										<span>Otomatik ID atanır</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-green-500 rounded-full"></div>
-										<span>Oluşturulma tarihi kaydedilir</span>
-									</li>
-								</ul>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
 			</div>
 		</div>
 	);
