@@ -1,0 +1,45 @@
+import { LoginProvider } from "@/providers/login-state-provider";
+import QueryProvider from "@/providers/query-client-provider";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
+import ProtectedRoute from "@/providers/protected-route";
+import LoginPage from "@/pages/login/login-page";
+import DashboardPage from "@/pages/dashboard/dashboard-page";
+import AdminLayout from "@/components/admin-layout";
+import UsersListPage from "@/pages/users/users-list-page";
+import UserCreatePage from "@/pages/users/user-create-page";
+import UserDetailPage from "@/pages/users/user-detail-page";
+import CategoryListPage from "@/pages/categories/category-list-page";
+import CategoryCreatePage from "@/pages/categories/category-create-page";
+import CategoryDetailPage from "@/pages/categories/category-detail-page";
+import CategoryEditPage from "@/pages/categories/category-edit-page";
+
+
+function App() {
+  return(
+    <QueryProvider>
+      <LoginProvider>
+        <BrowserRouter>
+          <Toaster />
+          <Routes> 
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<ProtectedRoute />}>
+              <Route element={<AdminLayout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="/users" element={<UsersListPage />} />
+                <Route path="/users/create" element={<UserCreatePage />} />
+                <Route path="/users/:id" element={<UserDetailPage />} />
+                <Route path="/users/:id/edit" element={<UserDetailPage />} />
+                <Route path="/categories" element={<CategoryListPage />} />
+                <Route path="/categories/create" element={<CategoryCreatePage />} />
+                <Route path="/categories/:id" element={<CategoryDetailPage />} />
+                <Route path="/categories/:id/edit" element={<CategoryEditPage />} />
+              </Route>
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </LoginProvider>
+    </QueryProvider>
+  )
+}
+export default App;
