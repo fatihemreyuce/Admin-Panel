@@ -9,24 +9,17 @@ export interface TranslationRequest {
     content: string;
 }
 
-export interface BlogRequest {
+
+export interface PostRequest {
     slug: string;
     categoryId: number;
     tags: TagResponse[];
-    status: "DRAFT"|"PUBLISHED";
+    status: "DRAFT" | "PUBLISHED";
     translations: TranslationRequest[];
     image: File;
 }
 
-export interface BlogCreateRequest {
-    slug: string;
-    categoryId: number;
-    tagIds: number[];
-    status: "DRAFT"|"PUBLISHED";
-    translations: TranslationRequest[];
-    image: File;
-}
-export interface BlogResponse {
+export interface PostResponse {
     id: number;
     title: string;
     slug: string;
@@ -34,19 +27,14 @@ export interface BlogResponse {
     expert: string;
     featuredImage: string;
     publishedAt: string;
-    status: "DRAFT" | "PUBLISHED";
-    translations: {
-        languageCode: string;
-        title: string;
-        expert: string;
-        content: string;
-    }[];
+    language: string;
     category: CategoryResponse;
     authorUsername: string;
     tags: TagResponse[];
 }
 
-export interface BlogListResponse {
-    content: BlogResponse[];
+
+export interface PostListResponse {
+    content: PostResponse[];
     page: PaginationResponse;
 }
