@@ -9,12 +9,11 @@ import {
 	LogOut,
 	Menu,
 	X,
-	UserPlus,
 	User,
 	Shield,
 	BookOpen,
-	FileText,
 	List,
+	Tag,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -41,28 +40,22 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
 			description: "Kullanıcı yönetimi",
 		},
 		{
-			name: "Yeni Kullanıcı",
-			href: "/users/create",
-			icon: UserPlus,
-			description: "Kullanıcı ekle",
+			name: "Kategori Listesi",
+			href: "/categories",
+			icon: List,
+			description: "Kategori yönetimi",
+		},
+		{
+			name: "Tag Listesi",
+			href: "/tags",
+			icon: Tag,
+			description: "Tag yönetimi",
 		},
 		{
 			name: "Blog Listesi",
 			href: "/blog",
 			icon: BookOpen,
 			description: "Blog yönetimi",
-		},
-		{
-			name: "Yeni Blog",
-			href: "/blog/create",
-			icon: FileText,
-			description: "Blog yazısı ekle",
-		},
-		{
-			name: "Kategori Listesi",
-			href: "/categories",
-			icon: List,
-			description: "Kategori yönetimi",
 		},
 		{
 			name: "Ayarlar",
@@ -130,7 +123,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
 					<nav className="flex-1 pl-3 pr-0 py-4 space-y-1 overflow-y-auto">
 						{navigationItems.map((item) => {
 							const Icon = item.icon;
-							const isActive = location.pathname === item.href;
+							const isActive = location.pathname === item.href || 
+								(item.href !== "/" && location.pathname.startsWith(item.href));
 
 							return (
 								<Link

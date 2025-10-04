@@ -31,7 +31,7 @@ export const createCategory = (request: CategoryRequest) => {
 
 export const updateCategory = (id: number, request: CategoryRequest) => {
 	return fetchClient<CategoryRequest, CategoryResponse>(
-		`/admin/categories/${id}/translated`,
+		`/admin/categories/${id}`,
 		{
 			method: "PUT",
 			body: request,

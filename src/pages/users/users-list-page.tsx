@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { DeleteModal } from "@/components/ui/modal";
 import { useUserList, useDeleteUserById } from "@/hooks/use-user";
 import { 
   Search, 
@@ -22,18 +23,46 @@ export default function UsersListPage() {
   const [page, setPage] = useState(0);
   const [size] = useState(10);
   const [sort] = useState("id,asc");
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    userId: number;
+    username: string;
+  }>({
+    isOpen: false,
+    userId: 0,
+    username: "",
+  });
 
   const { data: usersData, isLoading, error } = useUserList(search, page, size, sort);
   const deleteUserMutation = useDeleteUserById();
 
-  const handleDelete = async (userId: number, username: string) => {
-    if (window.confirm(`${username} kullanıcısını silmek istediğinizden emin misiniz?`)) {
-      try {
-        await deleteUserMutation.mutateAsync(userId);
-      } catch (error) {
-        console.error("Delete error:", error);
-      }
+  const handleDeleteClick = (userId: number, username: string) => {
+    setDeleteModal({
+      isOpen: true,
+      userId,
+      username,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await deleteUserMutation.mutateAsync(deleteModal.userId);
+      setDeleteModal({
+        isOpen: false,
+        userId: 0,
+        username: "",
+      });
+    } catch (error) {
+      console.error("Delete error:", error);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModal({
+      isOpen: false,
+      userId: 0,
+      username: "",
+    });
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -219,7 +248,7 @@ export default function UsersListPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDelete(user.id, user.username)}
+                          onClick={() => handleDeleteClick(user.id, user.username)}
                           disabled={deleteUserMutation.isPending}
                           className="h-8 w-8 p-0 text-red-600"
                         >
@@ -280,6 +309,19 @@ export default function UsersListPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Modal */}
+      <DeleteModal
+        isOpen={deleteModal.isOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Kullanıcı Sil"
+        message="Bu kullanıcıyı silmek istediğinizden emin misiniz?"
+        itemName={deleteModal.username}
+        isLoading={deleteUserMutation.isPending}
+        confirmText="Sil"
+        cancelText="İptal"
+      />
     </div>
   );
 }

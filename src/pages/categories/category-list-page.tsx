@@ -11,6 +11,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { DeleteModal } from "@/components/ui/modal";
+import { Badge } from "@/components/ui/badge";
 import { useCategories, useDeleteCategory } from "@/hooks/use-categories";
 import { Search, Plus, Edit, Trash2, Eye, Folder, Tag } from "lucide-react";
 
@@ -19,6 +21,15 @@ export default function CategoryListPage() {
 	const [page, setPage] = useState(0);
 	const [size] = useState(10);
 	const [sort] = useState("id,asc");
+	const [deleteModal, setDeleteModal] = useState<{
+		isOpen: boolean;
+		categoryId: number;
+		categoryName: string;
+	}>({
+		isOpen: false,
+		categoryId: 0,
+		categoryName: "",
+	});
 
 	const languages = [
 		{ code: "tr", name: "Türkçe", flag: "🇹🇷" },
@@ -32,20 +43,35 @@ export default function CategoryListPage() {
 		error,
 	} = useCategories(search, page, size, sort);
 	const categoriesData = categoriesResponse?.content || [];
-	const deleteCategoryMutation = useDeleteCategory(0); // Default ID for the hook
+	const deleteCategoryMutation = useDeleteCategory(deleteModal.categoryId);
 
-	const handleDelete = async (_categoryId: number, categoryName: string) => {
-		if (
-			window.confirm(
-				`${categoryName} kategorisini silmek istediğinizden emin misiniz?`
-			)
-		) {
-			try {
-				await deleteCategoryMutation.mutateAsync();
-			} catch (error) {
-				console.error("Delete error:", error);
-			}
+	const handleDeleteClick = (categoryId: number, categoryName: string) => {
+		setDeleteModal({
+			isOpen: true,
+			categoryId,
+			categoryName,
+		});
+	};
+
+	const handleDeleteConfirm = async () => {
+		try {
+			await deleteCategoryMutation.mutateAsync();
+			setDeleteModal({
+				isOpen: false,
+				categoryId: 0,
+				categoryName: "",
+			});
+		} catch (error) {
+			console.error("Delete error:", error);
 		}
+	};
+
+	const handleDeleteCancel = () => {
+		setDeleteModal({
+			isOpen: false,
+			categoryId: 0,
+			categoryName: "",
+		});
 	};
 
 	const handleSearch = (e: React.FormEvent) => {
@@ -78,6 +104,15 @@ export default function CategoryListPage() {
 			return null;
 		}
 		return category.translations.find((t) => t.languageCode === "tr");
+	};
+
+	const getAllTranslations = (
+		category: import("@/types/categories.types").CategoryResponse
+	) => {
+		if (!category.translations || !Array.isArray(category.translations)) {
+			return [];
+		}
+		return category.translations;
 	};
 
 	if (error) {
@@ -203,7 +238,7 @@ export default function CategoryListPage() {
 										<TableHead>Kategori Adı</TableHead>
 										<TableHead>Slug</TableHead>
 										<TableHead>Açıklama</TableHead>
-										<TableHead className="w-[120px]">Dil</TableHead>
+										<TableHead className="w-[180px]">Diller</TableHead>
 										<TableHead className="w-[100px]">Durum</TableHead>
 										<TableHead className="w-[120px]">İşlemler</TableHead>
 									</TableRow>
@@ -215,9 +250,7 @@ export default function CategoryListPage() {
 										) => {
 											const turkishTranslation =
 												getTurkishTranslation(category);
-											const languageInfo = getLanguageInfo(
-												turkishTranslation?.languageCode
-											);
+											const allTranslations = getAllTranslations(category);
 											return (
 												<TableRow key={category.id}>
 													<TableCell className="font-medium">
@@ -253,19 +286,26 @@ export default function CategoryListPage() {
 															)}
 													</TableCell>
 													<TableCell>
-														<div className="flex items-center space-x-2">
-															<span className="text-lg">
-																{languageInfo.flag}
-															</span>
-															<div className="flex flex-col">
-																<span className="text-sm font-medium">
-																	{languageInfo.name}
+														<div className="flex flex-wrap gap-1">
+															{allTranslations.length > 0 ? (
+																allTranslations.map((translation, index) => {
+																	const languageInfo = getLanguageInfo(translation.languageCode);
+																	return (
+																		<Badge 
+																			key={index}
+																			variant="secondary" 
+																			className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+																			title={`${languageInfo.name} (${languageInfo.code?.toUpperCase()})`}
+																		>
+																			{languageInfo.code?.toUpperCase() || "UN"}
+																		</Badge>
+																	);
+																})
+															) : (
+																<span className="text-gray-400 italic text-sm">
+																	Çeviri yok
 																</span>
-																<span className="text-xs text-gray-500">
-																	{languageInfo.code?.toUpperCase() ||
-																		"UNKNOWN"}
-																</span>
-															</div>
+															)}
 														</div>
 													</TableCell>
 													<TableCell>
@@ -303,7 +343,7 @@ export default function CategoryListPage() {
 																variant="outline"
 																size="sm"
 																onClick={() =>
-																	handleDelete(
+																	handleDeleteClick(
 																		category.id,
 																		turkishTranslation?.name ||
 																			category.name ||
@@ -327,6 +367,19 @@ export default function CategoryListPage() {
 					</CardContent>
 				</Card>
 			</div>
+
+			{/* Delete Modal */}
+			<DeleteModal
+				isOpen={deleteModal.isOpen}
+				onClose={handleDeleteCancel}
+				onConfirm={handleDeleteConfirm}
+				title="Kategori Sil"
+				message="Bu kategoriyi silmek istediğinizden emin misiniz?"
+				itemName={deleteModal.categoryName}
+				isLoading={deleteCategoryMutation.isPending}
+				confirmText="Sil"
+				cancelText="İptal"
+			/>
 		</div>
 	);
 }

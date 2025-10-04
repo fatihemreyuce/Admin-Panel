@@ -22,17 +22,42 @@ import {
 	Plus,
 	X,
 } from "lucide-react";
+import { z } from "zod";
 import type {
 	CategoryRequest,
 	TranslationRequest,
 } from "@/types/categories.types";
+
+// Zod şeması
+const categoryEditSchema = z.object({
+	slug: z
+		.string()
+		.min(1, "Slug gereklidir")
+		.regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
+	parentId: z
+		.number()
+		.min(0, "Üst kategori ID 0 veya pozitif olmalıdır"),
+	translations: z
+		.array(
+			z.object({
+				languageCode: z
+					.string()
+					.min(1, "Dil kodu gereklidir"),
+				name: z
+					.string()
+					.min(1, "Kategori adı gereklidir"),
+				description: z.string().optional(),
+			})
+		)
+		.min(1, "En az bir dil çevirisi gereklidir"),
+});
 
 export default function CategoryEditPage() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
 	const categoryId = parseInt(id || "0");
 	const { data: category, isLoading, error } = useCategoryById(categoryId);
-	const updateCategoryMutation = useUpdateCategory();
+	const updateCategoryMutation = useUpdateCategory(categoryId);
 
 	const languages = [
 		{ code: "tr", name: "Türkçe" },
@@ -48,7 +73,9 @@ export default function CategoryEditPage() {
 
 	const [errors, setErrors] = useState<{
 		slug?: string;
+		parentId?: string;
 		translations?: string;
+		submit?: string;
 	}>({});
 
 	useEffect(() => {
@@ -78,29 +105,29 @@ export default function CategoryEditPage() {
 	}, [category]);
 
 	const validateForm = (): boolean => {
-		const newErrors: { slug?: string; translations?: string } = {};
-
-		if (!formData.slug.trim()) {
-			newErrors.slug = "Slug gereklidir";
-		} else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-			newErrors.slug = "Slug sadece küçük harf, rakam ve tire içerebilir";
-		}
-
-		if (formData.translations.length === 0) {
-			newErrors.translations = "En az bir dil çevirisi gereklidir";
-		}
-
-		formData.translations.forEach((translation) => {
-			if (!translation.name.trim()) {
-				newErrors.translations = "Tüm çevirilerde kategori adı gereklidir";
+		try {
+			categoryEditSchema.parse(formData);
+			setErrors({});
+			return true;
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				const newErrors: { slug?: string; parentId?: string; translations?: string } = {};
+				
+				(error as any).errors.forEach((err: any) => {
+					const path = err.path.join('.');
+					if (path === 'slug') {
+						newErrors.slug = err.message;
+					} else if (path === 'parentId') {
+						newErrors.parentId = err.message;
+					} else if (path.startsWith('translations')) {
+						newErrors.translations = err.message;
+					}
+				});
+				
+				setErrors(newErrors);
 			}
-			if (!translation.languageCode.trim()) {
-				newErrors.translations = "Tüm çevirilerde dil kodu gereklidir";
-			}
-		});
-
-		setErrors(newErrors);
-		return Object.keys(newErrors).length === 0;
+			return false;
+		}
 	};
 
 	const handleInputChange = (
@@ -111,8 +138,14 @@ export default function CategoryEditPage() {
 		if (field === "slug" && errors.slug) {
 			setErrors((prev) => ({ ...prev, slug: undefined }));
 		}
+		if (field === "parentId" && errors.parentId) {
+			setErrors((prev) => ({ ...prev, parentId: undefined }));
+		}
 		if (field === "translations" && errors.translations) {
 			setErrors((prev) => ({ ...prev, translations: undefined }));
+		}
+		if (errors.submit) {
+			setErrors((prev) => ({ ...prev, submit: undefined }));
 		}
 	};
 
@@ -124,6 +157,13 @@ export default function CategoryEditPage() {
 		const newTranslations = [...formData.translations];
 		newTranslations[index] = { ...newTranslations[index], [field]: value };
 		handleInputChange("translations", newTranslations);
+	};
+
+	const getAvailableLanguages = (currentIndex: number) => {
+		const usedLanguages = formData.translations
+			.filter((_, index) => index !== currentIndex)
+			.map((t) => t.languageCode);
+		return languages.filter((lang) => !usedLanguages.includes(lang.code));
 	};
 
 	const addTranslation = () => {
@@ -155,13 +195,33 @@ export default function CategoryEditPage() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		setErrors({});
+		
 		if (!validateForm()) return;
 
 		try {
 			await updateCategoryMutation.mutateAsync(formData);
 			navigate("/categories");
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Update error:", error);
+			
+			// API'den gelen hata mesajını kullanıcı dostu hale getir
+			let errorMessage = "Kategori güncellenirken bir hata oluştu";
+			
+			if (error?.response?.data?.message) {
+				const apiMessage = error.response.data.message;
+				if (apiMessage.includes("Parent category not found")) {
+					errorMessage = "Belirtilen üst kategori ID'si bulunamadı. Lütfen geçerli bir ID girin veya ana kategori için 0 kullanın.";
+					setErrors({ parentId: errorMessage });
+				} else if (apiMessage.includes("already exists")) {
+					errorMessage = "Bu slug zaten kullanılıyor. Lütfen farklı bir slug deneyin.";
+					setErrors({ slug: errorMessage });
+				} else {
+					setErrors({ submit: apiMessage });
+				}
+			} else {
+				setErrors({ submit: errorMessage });
+			}
 		}
 	};
 
@@ -208,9 +268,10 @@ export default function CategoryEditPage() {
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-4">
 							<Button
-								variant="default"
+								variant="outline"
 								size="sm"
 								onClick={() => navigate("/categories")}
+								className="text-black border-gray-300"
 							>
 								<ArrowLeft className="w-4 h-4 mr-2" />
 								Geri
@@ -288,7 +349,11 @@ export default function CategoryEditPage() {
 												)
 											}
 											disabled={isFormDisabled}
+											className={`${errors.parentId ? "border-red-500" : ""}`}
 										/>
+										{errors.parentId && (
+											<p className="text-sm text-red-600">{errors.parentId}</p>
+										)}
 									</div>
 								</div>
 							</div>
@@ -357,7 +422,7 @@ export default function CategoryEditPage() {
 															<SelectValue placeholder="Dil seçin" />
 														</SelectTrigger>
 														<SelectContent>
-															{languages.map((lang) => (
+															{getAvailableLanguages(index).map((lang) => (
 																<SelectItem key={lang.code} value={lang.code}>
 																	{lang.name} ({lang.code.toUpperCase()})
 																</SelectItem>
@@ -409,6 +474,12 @@ export default function CategoryEditPage() {
 									<p className="text-sm text-red-600">{errors.translations}</p>
 								)}
 							</div>
+
+							{errors.submit && (
+								<div className="bg-red-50 border border-red-200 rounded-lg p-4">
+									<p className="text-sm text-red-600">{errors.submit}</p>
+								</div>
+							)}
 
 							<div className="flex justify-end space-x-4 pt-4 border-t">
 								<Button

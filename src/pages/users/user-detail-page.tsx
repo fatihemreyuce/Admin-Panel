@@ -6,7 +6,35 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUserById, useUpdateUser } from "@/hooks/use-user";
 import { ArrowLeft, Edit, Save, X, User, Mail, Calendar, Crown, FileText, Lock } from "lucide-react";
+import { z } from "zod";
 import type { UpdateUserRequest } from "@/types/user.types";
+
+// Zod şeması
+const userEditSchema = z.object({
+	username: z
+		.string()
+		.min(1, "Kullanıcı adı gereklidir")
+		.min(3, "Kullanıcı adı en az 3 karakter olmalıdır"),
+	email: z
+		.string()
+		.min(1, "Email gereklidir")
+		.email("Geçerli bir email adresi giriniz"),
+	password: z
+		.string()
+		.optional()
+		.refine((val) => !val || val.length >= 6, "Şifre en az 6 karakter olmalıdır"),
+	firstName: z
+		.string()
+		.min(1, "Ad gereklidir")
+		.min(2, "Ad en az 2 karakter olmalıdır"),
+	lastName: z
+		.string()
+		.min(1, "Soyad gereklidir")
+		.min(2, "Soyad en az 2 karakter olmalıdır"),
+	isActive: z.boolean().optional(),
+	role: z.enum(["USER", "ADMIN", "MODERATOR"]).optional(),
+	bio: z.string().optional(),
+});
 
 const getRoleDisplayName = (role: string) => 
   ({ ADMIN: 'Yönetici', MODERATOR: 'Moderatör', USER: 'Kullanıcı' }[role] || role);
@@ -23,6 +51,15 @@ export default function UserDetailPage() {
     firstName: "", lastName: "", role: "USER", bio: "", profileImage: undefined,
   });
 
+  const [errors, setErrors] = useState<{
+    username?: string;
+    email?: string;
+    password?: string;
+    firstName?: string;
+    lastName?: string;
+    submit?: string;
+  }>({});
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -34,19 +71,86 @@ export default function UserDetailPage() {
     }
   }, [user]);
 
-  const handleInputChange = (field: keyof UpdateUserRequest, value: string | boolean | File) => 
+  const handleInputChange = (field: keyof UpdateUserRequest, value: string | boolean | File) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+    if (errors.submit) {
+      setErrors(prev => ({ ...prev, submit: undefined }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    try {
+      userEditSchema.parse(formData);
+      setErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: {
+          username?: string;
+          email?: string;
+          password?: string;
+          firstName?: string;
+          lastName?: string;
+        } = {};
+        
+        (error as any).errors.forEach((err: any) => {
+          const path = err.path.join('.');
+          if (path === 'username') {
+            newErrors.username = err.message;
+          } else if (path === 'email') {
+            newErrors.email = err.message;
+          } else if (path === 'password') {
+            newErrors.password = err.message;
+          } else if (path === 'firstName') {
+            newErrors.firstName = err.message;
+          } else if (path === 'lastName') {
+            newErrors.lastName = err.message;
+          }
+        });
+        
+        setErrors(newErrors);
+      }
+      return false;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    
+    if (!validateForm()) return;
+
     try {
       const updateData: UpdateUserRequest = { ...formData };
       if (!updateData.password || updateData.password.trim() === "") delete updateData.password;
       await updateUserMutation.mutateAsync(updateData);
       setIsEditing(false);
       setFormData(prev => ({ ...prev, password: "" }));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update error:", error);
+      
+      // API'den gelen hata mesajını kullanıcı dostu hale getir
+      let errorMessage = "Kullanıcı güncellenirken bir hata oluştu";
+      
+      if (error?.response?.data?.message) {
+        const apiMessage = error.response.data.message;
+        if (apiMessage.includes("already exists") || apiMessage.includes("duplicate")) {
+          if (apiMessage.includes("email")) {
+            setErrors({ email: "Bu email adresi zaten kullanılıyor" });
+          } else if (apiMessage.includes("username")) {
+            setErrors({ username: "Bu kullanıcı adı zaten kullanılıyor" });
+          } else {
+            setErrors({ submit: apiMessage });
+          }
+        } else {
+          setErrors({ submit: apiMessage });
+        }
+      } else {
+        setErrors({ submit: errorMessage });
+      }
     }
   };
 
@@ -92,7 +196,7 @@ export default function UserDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Button variant="outline" onClick={() => navigate("/users")} className="text-white border-gray-300">
+              <Button variant="outline" onClick={() => navigate("/users")} className="text-black border-gray-300">
                 <ArrowLeft className="w-4 h-4 mr-2" />Geri
               </Button>
               <div>
@@ -171,20 +275,24 @@ export default function UserDetailPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="firstName">Ad *</Label>
-                          <Input id="firstName" value={formData.firstName} onChange={(e) => handleInputChange("firstName", e.target.value)} disabled={updateUserMutation.isPending} />
+                          <Input id="firstName" value={formData.firstName} onChange={(e) => handleInputChange("firstName", e.target.value)} disabled={updateUserMutation.isPending} className={errors.firstName ? "border-red-500" : ""} />
+                          {errors.firstName && <p className="text-sm text-red-600">{errors.firstName}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="lastName">Soyad *</Label>
-                          <Input id="lastName" value={formData.lastName} onChange={(e) => handleInputChange("lastName", e.target.value)} disabled={updateUserMutation.isPending} />
+                          <Input id="lastName" value={formData.lastName} onChange={(e) => handleInputChange("lastName", e.target.value)} disabled={updateUserMutation.isPending} className={errors.lastName ? "border-red-500" : ""} />
+                          {errors.lastName && <p className="text-sm text-red-600">{errors.lastName}</p>}
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="username">Kullanıcı Adı *</Label>
-                        <Input id="username" value={formData.username} onChange={(e) => handleInputChange("username", e.target.value)} disabled={updateUserMutation.isPending} />
+                        <Input id="username" value={formData.username} onChange={(e) => handleInputChange("username", e.target.value)} disabled={updateUserMutation.isPending} className={errors.username ? "border-red-500" : ""} />
+                        {errors.username && <p className="text-sm text-red-600">{errors.username}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="email">Email *</Label>
-                        <Input id="email" type="email" value={formData.email} onChange={(e) => handleInputChange("email", e.target.value)} disabled={updateUserMutation.isPending} />
+                        <Input id="email" type="email" value={formData.email} onChange={(e) => handleInputChange("email", e.target.value)} disabled={updateUserMutation.isPending} className={errors.email ? "border-red-500" : ""} />
+                        {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -193,7 +301,8 @@ export default function UserDetailPage() {
                         <Label htmlFor="password">Yeni Şifre (Opsiyonel)</Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <Input id="password" type="password" placeholder="Şifre değiştirmek istemiyorsanız boş bırakın" value={formData.password} onChange={(e) => handleInputChange("password", e.target.value)} disabled={updateUserMutation.isPending} className="pl-10" />
+                          <Input id="password" type="password" placeholder="Şifre değiştirmek istemiyorsanız boş bırakın" value={formData.password} onChange={(e) => handleInputChange("password", e.target.value)} disabled={updateUserMutation.isPending} className={`pl-10 ${errors.password ? "border-red-500" : ""}`} />
+                          {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -229,14 +338,20 @@ export default function UserDetailPage() {
                         <p className="text-xs text-gray-500">JPG, PNG veya GIF formatında resim yükleyebilirsiniz</p>
                       </div>
                     </div>
-                    <div className="flex justify-end space-x-4 pt-6 border-t">
-                      <Button type="button" variant="outline" onClick={handleCancel} disabled={updateUserMutation.isPending} className="text-white border-gray-300">
-                        <X className="w-4 h-4 mr-2" />İptal
-                      </Button>
-                      <Button type="submit" disabled={updateUserMutation.isPending} className="bg-black text-white">
-                        <Save className="w-4 h-4 mr-2" />{updateUserMutation.isPending ? "Kaydediliyor..." : "Kaydet"}
-                      </Button>
-                    </div>
+                      {errors.submit && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <p className="text-sm text-red-600">{errors.submit}</p>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end space-x-4 pt-6 border-t">
+                        <Button type="button" variant="outline" onClick={handleCancel} disabled={updateUserMutation.isPending} className="text-black border-gray-300">
+                          <X className="w-4 h-4 mr-2" />İptal
+                        </Button>
+                        <Button type="submit" disabled={updateUserMutation.isPending} className="bg-black text-white">
+                          <Save className="w-4 h-4 mr-2" />{updateUserMutation.isPending ? "Kaydediliyor..." : "Kaydet"}
+                        </Button>
+                      </div>
                   </form>
                 ) : (
                   <div className="space-y-6">

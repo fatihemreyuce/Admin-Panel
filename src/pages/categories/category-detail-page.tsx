@@ -23,7 +23,6 @@ import {
 	FileText,
 	Plus,
 	Trash2,
-	Languages,
 } from "lucide-react";
 import type {
 	CategoryRequest,
@@ -35,7 +34,7 @@ export default function CategoryDetailPage() {
 	const navigate = useNavigate();
 	const categoryId = parseInt(id || "0");
 	const { data: category, isLoading, error } = useCategoryById(categoryId);
-	const updateCategoryMutation = useUpdateCategory();
+	const updateCategoryMutation = useUpdateCategory(categoryId);
 	const [isEditing, setIsEditing] = useState(false);
 
 	const languages = [
@@ -218,7 +217,7 @@ export default function CategoryDetailPage() {
 							<Button
 								variant="outline"
 								onClick={() => navigate("/categories")}
-								className="text-white border-gray-300"
+								className="text-black border-gray-300"
 							>
 								<ArrowLeft className="w-4 h-4 mr-2" />
 								Geri
@@ -278,22 +277,30 @@ export default function CategoryDetailPage() {
 										<p className="font-medium font-mono">{category.slug}</p>
 									</div>
 								</div>
-								<div className="flex items-center space-x-3">
-									<Globe className="w-5 h-5 text-gray-400" />
-									<div>
-										<p className="text-sm text-gray-500">Dil</p>
-										<div className="flex items-center space-x-2">
-											<span className="text-lg">
-												{getLanguageInfo(category.language).flag}
-											</span>
-											<div>
-												<p className="font-medium">
-													{getLanguageInfo(category.language).name}
-												</p>
-												<p className="text-xs text-gray-500">
-													{category.language?.toUpperCase() || "UNKNOWN"}
-												</p>
-											</div>
+								<div className="flex items-start space-x-3">
+									<Globe className="w-5 h-5 text-gray-400 mt-1" />
+									<div className="flex-1">
+										<p className="text-sm text-gray-500 mb-2">Diller</p>
+										<div className="flex flex-wrap gap-2">
+											{category.translations && category.translations.length > 0 ? (
+												category.translations.map((translation, index) => {
+													const languageInfo = getLanguageInfo(translation.languageCode);
+													return (
+														<div
+															key={index}
+															className="inline-flex items-center justify-center bg-gray-100 rounded-full px-2 py-1 text-xs"
+														>
+															<span className="font-medium">
+																{languageInfo.code?.toUpperCase()}
+															</span>
+														</div>
+													);
+												})
+											) : (
+												<span className="text-gray-400 italic text-sm">
+													Çeviri yok
+												</span>
+											)}
 										</div>
 									</div>
 								</div>
@@ -546,19 +553,28 @@ export default function CategoryDetailPage() {
 											</div>
 											<div className="space-y-4">
 												<div>
-													<p className="text-sm text-gray-500 mb-1">Dil</p>
-													<div className="flex items-center space-x-2">
-														<span className="text-lg">
-															{getLanguageInfo(category.language).flag}
-														</span>
-														<div>
-															<p className="font-medium">
-																{getLanguageInfo(category.language).name}
-															</p>
-															<p className="text-xs text-gray-500">
-																{category.language?.toUpperCase() || "UNKNOWN"}
-															</p>
-														</div>
+													<p className="text-sm text-gray-500 mb-2">Diller</p>
+													<div className="flex flex-wrap gap-1">
+														{category.translations && category.translations.length > 0 ? (
+															category.translations.map((translation, index) => {
+																const languageInfo = getLanguageInfo(translation.languageCode);
+																return (
+																	<div
+																		key={index}
+																		className="inline-flex items-center justify-center bg-gray-100 rounded-full w-8 h-8"
+																		title={`${languageInfo.name} (${languageInfo.code?.toUpperCase()})`}
+																	>
+																		<span className="text-lg">
+																			{languageInfo.flag}
+																		</span>
+																	</div>
+																);
+															})
+														) : (
+															<span className="text-gray-400 italic text-sm">
+																Çeviri yok
+															</span>
+														)}
 													</div>
 												</div>
 												<div>

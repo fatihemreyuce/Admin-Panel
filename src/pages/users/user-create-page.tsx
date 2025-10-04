@@ -6,7 +6,35 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCreateUser } from "@/hooks/use-user";
 import { ArrowLeft, UserPlus, Mail, User, Lock, Shield, FileText, Image } from "lucide-react";
+import { z } from "zod";
 import type { CreateUserRequest } from "@/types/user.types";
+
+// Zod şeması
+const userSchema = z.object({
+	username: z
+		.string()
+		.min(1, "Kullanıcı adı gereklidir")
+		.min(3, "Kullanıcı adı en az 3 karakter olmalıdır"),
+	email: z
+		.string()
+		.min(1, "Email gereklidir")
+		.email("Geçerli bir email adresi giriniz"),
+	password: z
+		.string()
+		.min(1, "Şifre gereklidir")
+		.min(6, "Şifre en az 6 karakter olmalıdır"),
+	firstName: z
+		.string()
+		.min(1, "Ad gereklidir")
+		.min(2, "Ad en az 2 karakter olmalıdır"),
+	lastName: z
+		.string()
+		.min(1, "Soyad gereklidir")
+		.min(2, "Soyad en az 2 karakter olmalıdır"),
+	isActive: z.boolean().optional(),
+	role: z.enum(["USER", "ADMIN", "MODERATOR"]).optional(),
+	bio: z.string().optional(),
+});
 
 export default function UserCreatePage() {
   const navigate = useNavigate();
@@ -23,61 +51,92 @@ export default function UserCreatePage() {
     bio: "",
   });
 
-  const [errors, setErrors] = useState<Partial<CreateUserRequest>>({});
+  const [errors, setErrors] = useState<{
+    username?: string;
+    email?: string;
+    password?: string;
+    firstName?: string;
+    lastName?: string;
+    submit?: string;
+  }>({});
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<CreateUserRequest> = {};
-
-    if (!formData.username.trim()) {
-      newErrors.username = "Kullanıcı adı gereklidir";
-    } else if (formData.username.length < 3) {
-      newErrors.username = "Kullanıcı adı en az 3 karakter olmalıdır";
+    try {
+      userSchema.parse(formData);
+      setErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: {
+          username?: string;
+          email?: string;
+          password?: string;
+          firstName?: string;
+          lastName?: string;
+        } = {};
+        
+        error.errors.forEach((err) => {
+          const path = err.path.join('.');
+          if (path === 'username') {
+            newErrors.username = err.message;
+          } else if (path === 'email') {
+            newErrors.email = err.message;
+          } else if (path === 'password') {
+            newErrors.password = err.message;
+          } else if (path === 'firstName') {
+            newErrors.firstName = err.message;
+          } else if (path === 'lastName') {
+            newErrors.lastName = err.message;
+          }
+        });
+        
+        setErrors(newErrors);
+      }
+      return false;
     }
-
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "Ad gereklidir";
-    } else if (formData.firstName.length < 2) {
-      newErrors.firstName = "Ad en az 2 karakter olmalıdır";
-    }
-
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Soyad gereklidir";
-    } else if (formData.lastName.length < 2) {
-      newErrors.lastName = "Soyad en az 2 karakter olmalıdır";
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = "Email gereklidir";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Geçerli bir email adresi giriniz";
-    }
-
-    if (!formData.password.trim()) {
-      newErrors.password = "Şifre gereklidir";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Şifre en az 6 karakter olmalıdır";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    
     if (!validateForm()) return;
 
     try {
       await createUserMutation.mutateAsync(formData);
       navigate("/users");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Create user error:", error);
+      
+      // API'den gelen hata mesajını kullanıcı dostu hale getir
+      let errorMessage = "Kullanıcı oluşturulurken bir hata oluştu";
+      
+      if (error?.response?.data?.message) {
+        const apiMessage = error.response.data.message;
+        if (apiMessage.includes("already exists") || apiMessage.includes("duplicate")) {
+          if (apiMessage.includes("email")) {
+            setErrors({ email: "Bu email adresi zaten kullanılıyor" });
+          } else if (apiMessage.includes("username")) {
+            setErrors({ username: "Bu kullanıcı adı zaten kullanılıyor" });
+          } else {
+            setErrors({ submit: apiMessage });
+          }
+        } else {
+          setErrors({ submit: apiMessage });
+        }
+      } else {
+        setErrors({ submit: errorMessage });
+      }
     }
   };
 
   const handleInputChange = (field: keyof CreateUserRequest, value: string | boolean | File) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
+    if (errors[field as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+    if (errors.submit) {
+      setErrors(prev => ({ ...prev, submit: undefined }));
     }
   };
 
@@ -289,6 +348,12 @@ export default function UserCreatePage() {
                   </div>
                 </div>
               </div>
+
+              {errors.submit && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-600">{errors.submit}</p>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-4 pt-4 border-t">
                 <Button

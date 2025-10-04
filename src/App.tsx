@@ -13,6 +13,13 @@ import CategoryListPage from "@/pages/categories/category-list-page";
 import CategoryCreatePage from "@/pages/categories/category-create-page";
 import CategoryDetailPage from "@/pages/categories/category-detail-page";
 import CategoryEditPage from "@/pages/categories/category-edit-page";
+import TagListPage from "@/pages/tags/tag-list-page";
+import TagCreatePage from "@/pages/tags/tag-create-page";
+import TagDetailPage from "@/pages/tags/tag-detail-page";
+import TagEditPage from "@/pages/tags/tag-edit-page";
+
+
+
 
 
 function App() {
@@ -34,6 +41,10 @@ function App() {
                 <Route path="/categories/create" element={<CategoryCreatePage />} />
                 <Route path="/categories/:id" element={<CategoryDetailPage />} />
                 <Route path="/categories/:id/edit" element={<CategoryEditPage />} />
+                <Route path="/tags" element={<TagListPage />} />
+                <Route path="/tags/create" element={<TagCreatePage />} />
+                <Route path="/tags/:id" element={<TagDetailPage />} />
+                <Route path="/tags/:id/edit" element={<TagEditPage />} />
               </Route>
             </Route>
           </Routes>

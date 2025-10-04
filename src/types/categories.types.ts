@@ -6,12 +6,6 @@ export interface TranslationRequest {
 	description: string;
 }
 
-export interface Translation {
-	languageCode: string;
-	name: string;
-	description: string;
-}
-
 export interface CategoryRequest {
 	slug: string;
 	parentId: number;
@@ -25,8 +19,11 @@ export interface CategoryResponse {
 	description?: string;
 	isActive: boolean;
 	parentId: number | null;
-	language?: string;
-	translations: Translation[];
+	translations: {
+		languageCode: string;
+		name: string;
+		description: string;
+	}[];
 	subcategories: CategoryResponse[];
 }
 

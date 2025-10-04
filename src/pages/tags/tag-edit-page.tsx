@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
 	Select,
 	SelectContent,
@@ -11,31 +12,30 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { useCreateCategory } from "@/hooks/use-categories";
+import { useTagById, useUpdateTag } from "@/hooks/use-tags";
 import {
 	ArrowLeft,
-	FolderPlus,
+	Edit,
 	Tag,
 	Globe,
-	FileText,
 	Plus,
 	X,
+	Palette,
+	Loader2,
 } from "lucide-react";
 import { z } from "zod";
-import type {
-	CategoryRequest,
-	TranslationRequest,
-} from "@/types/categories.types";
+import type { TagRequest, TranslationRequest } from "@/types/tags.types";
 
 // Zod şeması
-const categorySchema = z.object({
+const tagSchema = z.object({
 	slug: z
 		.string()
 		.min(1, "Slug gereklidir")
 		.regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
-	parentId: z
-		.number()
-		.min(0, "Üst kategori ID 0 veya pozitif olmalıdır"),
+	color: z
+		.string()
+		.min(1, "Renk gereklidir")
+		.regex(/^#[0-9A-Fa-f]{6}$/, "Geçerli bir hex renk kodu giriniz (#RRGGBB)"),
 	translations: z
 		.array(
 			z.object({
@@ -44,16 +44,19 @@ const categorySchema = z.object({
 					.min(1, "Dil kodu gereklidir"),
 				name: z
 					.string()
-					.min(1, "Kategori adı gereklidir"),
-				description: z.string().optional(),
+					.min(1, "Tag adı gereklidir"),
 			})
 		)
 		.min(1, "En az bir dil çevirisi gereklidir"),
 });
 
-export default function CategoryCreatePage() {
+export default function TagEditPage() {
 	const navigate = useNavigate();
-	const createCategoryMutation = useCreateCategory();
+	const { id } = useParams<{ id: string }>();
+	const tagId = parseInt(id || "0");
+
+	const { data: tagData, isLoading: isLoadingTag, error: tagError } = useTagById(tagId);
+	const updateTagMutation = useUpdateTag(tagId);
 
 	const languages = [
 		{ code: "tr", name: "Türkçe" },
@@ -61,42 +64,69 @@ export default function CategoryCreatePage() {
 		{ code: "de", name: "Deutsch" },
 	];
 
-	const [formData, setFormData] = useState<CategoryRequest>({
+	const [formData, setFormData] = useState<TagRequest>({
 		slug: "",
-		parentId: 0,
+		color: "#3B82F6",
 		translations: [
 			{
 				languageCode: "tr",
 				name: "",
-				description: "",
 			},
 		],
 	});
 
 	const [errors, setErrors] = useState<{
 		slug?: string;
-		parentId?: string;
+		color?: string;
 		translations?: string;
 		submit?: string;
 	}>({});
 
+	// Tag verilerini form'a yükle
+	useEffect(() => {
+		if (tagData) {
+			setFormData({
+				slug: tagData.slug || "",
+				color: tagData.color || "#3B82F6",
+				translations: tagData.translations && tagData.translations.length > 0 
+					? tagData.translations.map(translation => ({
+						languageCode: translation.languageCode || "tr",
+						name: translation.name || "",
+					}))
+					: [
+						{
+							languageCode: "tr",
+							name: tagData.name || "",
+						},
+					],
+			});
+		}
+	}, [tagData]);
+
 	const validateForm = (): boolean => {
 		try {
-			categorySchema.parse(formData);
+			tagSchema.parse(formData);
 			setErrors({});
 			return true;
 		} catch (error) {
 			if (error instanceof z.ZodError) {
-				const newErrors: { slug?: string; parentId?: string; translations?: string } = {};
+				const newErrors: { slug?: string; color?: string; translations?: string } = {};
 				
-				error.errors.forEach((err) => {
+				error.issues.forEach((err) => {
 					const path = err.path.join('.');
 					if (path === 'slug') {
 						newErrors.slug = err.message;
-					} else if (path === 'parentId') {
-						newErrors.parentId = err.message;
+					} else if (path === 'color') {
+						newErrors.color = err.message;
 					} else if (path.startsWith('translations')) {
-						newErrors.translations = err.message;
+						// Check if it's a specific translation field error
+						if (path.includes('name')) {
+							newErrors.translations = "Tüm çeviriler için tag adı gereklidir";
+						} else if (path.includes('languageCode')) {
+							newErrors.translations = "Tüm çeviriler için dil kodu gereklidir";
+						} else {
+							newErrors.translations = err.message;
+						}
 					}
 				});
 				
@@ -113,20 +143,17 @@ export default function CategoryCreatePage() {
 		if (!validateForm()) return;
 
 		try {
-			await createCategoryMutation.mutateAsync(formData);
-			navigate("/categories");
+			await updateTagMutation.mutateAsync(formData);
+			navigate("/tags");
 		} catch (error: any) {
-			console.error("Create category error:", error);
+			console.error("Update tag error:", error);
 			
 			// API'den gelen hata mesajını kullanıcı dostu hale getir
-			let errorMessage = "Kategori oluşturulurken bir hata oluştu";
+			let errorMessage = "Tag güncellenirken bir hata oluştu";
 			
 			if (error?.response?.data?.message) {
 				const apiMessage = error.response.data.message;
-				if (apiMessage.includes("Parent category not found")) {
-					errorMessage = "Belirtilen üst kategori ID'si bulunamadı. Lütfen geçerli bir ID girin veya ana kategori için 0 kullanın.";
-					setErrors({ parentId: errorMessage });
-				} else if (apiMessage.includes("already exists")) {
+				if (apiMessage.includes("already exists")) {
 					errorMessage = "Bu slug zaten kullanılıyor. Lütfen farklı bir slug deneyin.";
 					setErrors({ slug: errorMessage });
 				} else {
@@ -139,15 +166,15 @@ export default function CategoryCreatePage() {
 	};
 
 	const handleInputChange = (
-		field: keyof CategoryRequest,
-		value: string | number | TranslationRequest[]
+		field: keyof TagRequest,
+		value: string | TranslationRequest[]
 	) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 		if (field === "slug" && errors.slug) {
 			setErrors((prev) => ({ ...prev, slug: undefined }));
 		}
-		if (field === "parentId" && errors.parentId) {
-			setErrors((prev) => ({ ...prev, parentId: undefined }));
+		if (field === "color" && errors.color) {
+			setErrors((prev) => ({ ...prev, color: undefined }));
 		}
 		if (field === "translations" && errors.translations) {
 			setErrors((prev) => ({ ...prev, translations: undefined }));
@@ -165,6 +192,11 @@ export default function CategoryCreatePage() {
 		const newTranslations = [...formData.translations];
 		newTranslations[index] = { ...newTranslations[index], [field]: value };
 		handleInputChange("translations", newTranslations);
+		
+		// Clear translation errors when user starts typing
+		if (errors.translations) {
+			setErrors((prev) => ({ ...prev, translations: undefined }));
+		}
 	};
 
 	const getAvailableLanguages = (currentIndex: number) => {
@@ -185,7 +217,6 @@ export default function CategoryCreatePage() {
 				{
 					languageCode: availableLanguage.code,
 					name: "",
-					description: "",
 				},
 			];
 			handleInputChange("translations", newTranslations);
@@ -201,7 +232,70 @@ export default function CategoryCreatePage() {
 		}
 	};
 
-	const isFormDisabled = createCategoryMutation.isPending;
+	const isFormDisabled = updateTagMutation.isPending || isLoadingTag;
+
+	// Loading state
+	if (isLoadingTag) {
+		return (
+			<div className="min-h-screen flex items-center justify-center">
+				<Card className="w-full max-w-md">
+					<CardContent className="pt-6">
+						<div className="text-center">
+							<Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+							<p className="text-gray-600">Tag bilgileri yükleniyor...</p>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+
+	// Error state
+	if (tagError) {
+		return (
+			<div className="min-h-screen flex items-center justify-center">
+				<Card className="w-full max-w-md">
+					<CardContent className="pt-6">
+						<div className="text-center">
+							<p className="text-red-600">
+								Tag bilgileri yüklenirken hata oluştu
+							</p>
+							<p className="text-sm text-gray-500 mt-2">
+								{tagError instanceof Error ? tagError.message : "Bilinmeyen hata"}
+							</p>
+							<Button
+								onClick={() => navigate("/tags")}
+								className="mt-4"
+							>
+								Tag Listesine Dön
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+
+	// Tag not found
+	if (!tagData) {
+		return (
+			<div className="min-h-screen flex items-center justify-center">
+				<Card className="w-full max-w-md">
+					<CardContent className="pt-6">
+						<div className="text-center">
+							<p className="text-gray-600">Tag bulunamadı</p>
+							<Button
+								onClick={() => navigate("/tags")}
+								className="mt-4"
+							>
+								Tag Listesine Dön
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
 
 	return (
 		<div className="min-h-screen w-full">
@@ -212,21 +306,21 @@ export default function CategoryCreatePage() {
 							<Button
 								variant="default"
 								size="sm"
-								onClick={() => navigate("/categories")}
+								onClick={() => navigate("/tags")}
 							>
 								<ArrowLeft className="w-4 h-4 mr-2" />
 								Geri
 							</Button>
 							<div className="flex items-center space-x-3">
 								<div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
-									<FolderPlus className="w-5 h-5 text-white" />
+									<Edit className="w-5 h-5 text-white" />
 								</div>
 								<div>
 									<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-										Yeni Kategori Ekle
+										Tag Düzenle
 									</h1>
 									<p className="text-gray-600 dark:text-gray-400 mt-1">
-										Sisteme yeni kategori ekleyin
+										Tag bilgilerini güncelleyin
 									</p>
 								</div>
 							</div>
@@ -239,8 +333,8 @@ export default function CategoryCreatePage() {
 				<Card className="shadow-lg border-0 bg-white dark:bg-gray-800 w-full">
 					<CardHeader className="border-b border-gray-200 dark:border-gray-600">
 						<CardTitle className="text-xl font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
-							<FolderPlus className="w-5 h-5" />
-							<span>Kategori Bilgileri</span>
+							<Edit className="w-5 h-5" />
+							<span>Tag Bilgileri</span>
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
@@ -260,7 +354,7 @@ export default function CategoryCreatePage() {
 											<Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
 											<Input
 												id="slug"
-												placeholder="kategori-slug"
+												placeholder="tag-slug"
 												value={formData.slug}
 												onChange={(e) =>
 													handleInputChange("slug", e.target.value)
@@ -277,23 +371,24 @@ export default function CategoryCreatePage() {
 									</div>
 
 									<div className="space-y-2">
-										<Label htmlFor="parentId">Üst Kategori ID</Label>
-										<Input
-											id="parentId"
-											type="number"
-											placeholder="0 (ana kategori)"
-											value={formData.parentId}
-											onChange={(e) =>
-												handleInputChange(
-													"parentId",
-													parseInt(e.target.value) || 0
-												)
-											}
-											disabled={isFormDisabled}
-											className={`${errors.parentId ? "border-red-500" : ""}`}
-										/>
-										{errors.parentId && (
-											<p className="text-sm text-red-600">{errors.parentId}</p>
+										<Label htmlFor="color">Renk *</Label>
+										<div className="relative">
+											<Palette className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+											<Input
+												id="color"
+												type="color"
+												value={formData.color}
+												onChange={(e) =>
+													handleInputChange("color", e.target.value)
+												}
+												disabled={isFormDisabled}
+												className={`pl-10 h-12 ${
+													errors.color ? "border-red-500" : ""
+												}`}
+											/>
+										</div>
+										{errors.color && (
+											<p className="text-sm text-red-600">{errors.color}</p>
 										)}
 									</div>
 								</div>
@@ -324,11 +419,13 @@ export default function CategoryCreatePage() {
 									<Card key={index} className="border border-gray-200">
 										<CardHeader className="pb-3">
 											<div className="flex items-center justify-between">
-												<CardTitle className="text-sm font-medium text-gray-700">
+												<CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
 													{languages.find(
 														(lang) => lang.code === translation.languageCode
-													)?.name || "Çeviri"}{" "}
-													({translation.languageCode.toUpperCase()})
+													)?.name || "Çeviri"}
+													<Badge variant="outline" className="text-xs">
+														{translation.languageCode.toUpperCase()}
+													</Badge>
 												</CardTitle>
 												{formData.translations.length > 1 && (
 													<Button
@@ -345,7 +442,7 @@ export default function CategoryCreatePage() {
 											</div>
 										</CardHeader>
 										<CardContent className="space-y-4">
-											<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<div className="space-y-2">
 													<Label htmlFor={`language-${index}`}>Dil *</Label>
 													<Select
@@ -373,34 +470,16 @@ export default function CategoryCreatePage() {
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor={`name-${index}`}>
-														Kategori Adı *
+														Tag Adı *
 													</Label>
 													<Input
 														id={`name-${index}`}
-														placeholder="Kategori adı"
+														placeholder="Tag adı"
 														value={translation.name}
 														onChange={(e) =>
 															handleTranslationChange(
 																index,
 																"name",
-																e.target.value
-															)
-														}
-														disabled={isFormDisabled}
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor={`description-${index}`}>
-														Açıklama
-													</Label>
-													<Input
-														id={`description-${index}`}
-														placeholder="Kategori açıklaması"
-														value={translation.description}
-														onChange={(e) =>
-															handleTranslationChange(
-																index,
-																"description",
 																e.target.value
 															)
 														}
@@ -426,7 +505,7 @@ export default function CategoryCreatePage() {
 								<Button
 									type="button"
 									variant="default"
-									onClick={() => navigate("/categories")}
+									onClick={() => navigate("/tags")}
 									disabled={isFormDisabled}
 								>
 									İptal
@@ -436,63 +515,20 @@ export default function CategoryCreatePage() {
 									disabled={isFormDisabled}
 									className="bg-black text-white"
 								>
-									{isFormDisabled ? "Oluşturuluyor..." : "Kategori Oluştur"}
+									{isFormDisabled ? (
+										<>
+											<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+											Güncelleniyor...
+										</>
+									) : (
+										"Tag Güncelle"
+									)}
 								</Button>
 							</div>
 						</form>
 					</CardContent>
 				</Card>
 
-				<Card className="shadow-lg border-0 bg-white dark:bg-gray-800 w-full">
-					<CardHeader className="border-b border-gray-200 dark:border-gray-600">
-						<CardTitle className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
-							<FileText className="w-4 h-4" />
-							<span>Form Kuralları</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600">
-							<div>
-								<h4 className="font-medium text-gray-900 mb-2">
-									Zorunlu Alanlar:
-								</h4>
-								<ul className="space-y-1">
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-										<span>Slug (küçük harf, rakam, tire)</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-										<span>En az bir çeviri</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-										<span>Dil kodu ve kategori adı</span>
-									</li>
-								</ul>
-							</div>
-							<div>
-								<h4 className="font-medium text-gray-900 mb-2">
-									Varsayılan Ayarlar:
-								</h4>
-								<ul className="space-y-1">
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-green-500 rounded-full"></div>
-										<span>Ana kategori (parentId: 0)</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-green-500 rounded-full"></div>
-										<span>Otomatik ID atanır</span>
-									</li>
-									<li className="flex items-center space-x-2">
-										<div className="w-1 h-1 bg-green-500 rounded-full"></div>
-										<span>Oluşturulma tarihi kaydedilir</span>
-									</li>
-								</ul>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
 			</div>
 		</div>
 	);
