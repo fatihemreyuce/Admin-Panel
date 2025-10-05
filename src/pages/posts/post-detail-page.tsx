@@ -1,43 +1,47 @@
-import { useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DeleteModal } from "@/components/ui/modal";
 import { usePostById, useDeletePost } from "@/hooks/use-post";
-import { 
-	ArrowLeft, 
-	Edit, 
-	Trash2, 
-	FileText, 
-	Calendar, 
-	User, 
-	Tag, 
+import {
+	ArrowLeft,
+	Edit,
+	Trash2,
+	FileText,
+	Calendar,
+	User,
+	Tag,
 	Folder,
-	Eye,
-	Share
+	Globe,
+	Image,
+	Loader2,
 } from "lucide-react";
+import { DeleteModal } from "@/components/ui/modal";
+import { useState } from "react";
 
 export default function PostDetailPage() {
 	const navigate = useNavigate();
 	const { id } = useParams<{ id: string }>();
 	const postId = parseInt(id || "0");
 
+	const { data: postData, isLoading, error } = usePostById(postId);
 	const [deleteModal, setDeleteModal] = useState<{
 		isOpen: boolean;
+		postId: number;
 		postTitle: string;
 	}>({
 		isOpen: false,
+		postId: 0,
 		postTitle: "",
 	});
 
-	const { data: postData, isLoading, error } = usePostById(postId);
 	const deletePostMutation = useDeletePost(postId);
 
 	const handleDeleteClick = () => {
 		if (postData) {
 			setDeleteModal({
 				isOpen: true,
+				postId: postData.id,
 				postTitle: postData.title,
 			});
 		}
@@ -55,27 +59,20 @@ export default function PostDetailPage() {
 	const handleDeleteCancel = () => {
 		setDeleteModal({
 			isOpen: false,
+			postId: 0,
 			postTitle: "",
 		});
 	};
 
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString('tr-TR', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	};
-
+	// Loading state
 	if (isLoading) {
 		return (
-			<div className="flex items-center justify-center h-64">
+			<div className="min-h-screen flex items-center justify-center">
 				<Card className="w-full max-w-md">
 					<CardContent className="pt-6">
 						<div className="text-center">
-							<p className="text-gray-600">Blog yazısı yükleniyor...</p>
+							<Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+							<p className="text-gray-600">Post bilgileri yükleniyor...</p>
 						</div>
 					</CardContent>
 				</Card>
@@ -83,18 +80,45 @@ export default function PostDetailPage() {
 		);
 	}
 
-	if (error || !postData) {
+	// Error state
+	if (error) {
 		return (
-			<div className="flex items-center justify-center h-64">
+			<div className="min-h-screen flex items-center justify-center">
 				<Card className="w-full max-w-md">
 					<CardContent className="pt-6">
 						<div className="text-center">
-							<p className="text-red-600">Blog yazısı bulunamadı</p>
-							<Button 
+							<p className="text-red-600">
+								Post bilgileri yüklenirken hata oluştu
+							</p>
+							<p className="text-sm text-gray-500 mt-2">
+								{error instanceof Error ? error.message : "Bilinmeyen hata"}
+							</p>
+							<Button
 								onClick={() => navigate("/posts")}
 								className="mt-4"
 							>
-								Geri Dön
+								Post Listesine Dön
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+
+	// Post not found
+	if (!postData) {
+		return (
+			<div className="min-h-screen flex items-center justify-center">
+				<Card className="w-full max-w-md">
+					<CardContent className="pt-6">
+						<div className="text-center">
+							<p className="text-gray-600">Post bulunamadı</p>
+							<Button
+								onClick={() => navigate("/posts")}
+								className="mt-4"
+							>
+								Post Listesine Dön
 							</Button>
 						</div>
 					</CardContent>
@@ -110,203 +134,269 @@ export default function PostDetailPage() {
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-3">
 							<Button
-								variant="ghost"
+								variant="default"
 								size="sm"
 								onClick={() => navigate("/posts")}
-								className="flex items-center space-x-2"
 							>
-								<ArrowLeft className="w-4 h-4" />
-								<span>Geri</span>
+								<ArrowLeft className="w-4 h-4 mr-2" />
+								Geri
 							</Button>
-							<div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
-								<Eye className="w-5 h-5 text-white" />
-							</div>
-							<div>
-								<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-									Blog Yazısı Detayı
-								</h1>
-								<p className="text-gray-600 dark:text-gray-400 mt-1">
-									{postData.title}
-								</p>
+							<div className="flex items-center space-x-3">
+								<div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+									<FileText className="w-5 h-5 text-white" />
+								</div>
+								<div>
+									<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+										Post Detayı
+									</h1>
+									<p className="text-gray-600 dark:text-gray-400 mt-1">
+										Post bilgilerini görüntüleyin
+									</p>
+								</div>
 							</div>
 						</div>
-						<div className="flex items-center space-x-2">
-							<Link to={`/posts/${postId}/edit`}>
-								<Button
-									variant="outline"
-									className="flex items-center space-x-2"
-								>
-									<Edit className="w-4 h-4" />
-									<span>Düzenle</span>
-								</Button>
-							</Link>
+						<div className="flex space-x-2">
+							<Button
+								variant="outline"
+								onClick={() => navigate(`/posts/${postData.id}/edit`)}
+								className="flex items-center gap-2"
+							>
+								<Edit className="w-4 h-4" />
+								Düzenle
+							</Button>
 							<Button
 								variant="outline"
 								onClick={handleDeleteClick}
 								disabled={deletePostMutation.isPending}
-								className="flex items-center space-x-2 text-red-600 hover:text-red-700"
+								className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
 							>
 								<Trash2 className="w-4 h-4" />
-								<span>Sil</span>
+								Sil
 							</Button>
 						</div>
 					</div>
 				</div>
 			</div>
 
-			<div className="px-4 py-6">
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-					{/* Ana İçerik */}
-					<div className="lg:col-span-2 space-y-6">
-						<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
-							<CardHeader className="border-b border-gray-200 dark:border-gray-600">
-								<div className="flex items-start justify-between">
-									<div className="flex-1">
-										<CardTitle className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-											{postData.title}
-										</CardTitle>
-										<div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-											<div className="flex items-center space-x-1">
-												<Calendar className="w-4 h-4" />
-												<span>{formatDate(postData.publishedAt)}</span>
-											</div>
-											<div className="flex items-center space-x-1">
-												<User className="w-4 h-4" />
-												<span>{postData.authorUsername}</span>
-											</div>
-											<div className="flex items-center space-x-1">
-												<FileText className="w-4 h-4" />
-												<span>{postData.language}</span>
-											</div>
+			<div className="px-4 py-2 space-y-4">
+				{/* Post Bilgileri */}
+				<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
+					<CardHeader className="border-b border-gray-200 dark:border-gray-600">
+						<CardTitle className="text-xl font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+							<FileText className="w-5 h-5" />
+							<span>Post Bilgileri</span>
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+							{/* Temel Bilgiler */}
+							<div className="space-y-4">
+								<div className="flex items-center space-x-2 pb-2 border-b">
+									<FileText className="w-4 h-4 text-gray-600" />
+									<h3 className="font-semibold text-gray-900">Temel Bilgiler</h3>
+								</div>
+
+								<div className="space-y-3">
+									<div className="flex items-center space-x-3">
+										<div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+											<FileText className="w-4 h-4 text-gray-600" />
+										</div>
+										<div>
+											<p className="text-sm text-gray-500">ID</p>
+											<p className="font-medium text-gray-900 dark:text-white">
+												{postData.id}
+											</p>
 										</div>
 									</div>
-									<Badge 
-										variant="default"
-										className="ml-4 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-									>
-										Yayında
-									</Badge>
-								</div>
-							</CardHeader>
-							<CardContent className="pt-6">
-								{postData.featuredImage && (
-									<div className="mb-6">
-										<img
-											src={postData.featuredImage}
-											alt={postData.title}
-											className="w-full h-64 object-cover rounded-lg"
-										/>
-									</div>
-								)}
 
-								{postData.expert && (
-									<div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-										<h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-											Özet
-										</h3>
-										<p className="text-gray-700 dark:text-gray-300">
-											{postData.expert}
-										</p>
-									</div>
-								)}
-
-								<div className="prose dark:prose-invert max-w-none">
-									<h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-										İçerik
-									</h3>
-									<div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-										{postData.content}
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					</div>
-
-					{/* Yan Panel */}
-					<div className="space-y-6">
-						{/* Kategori Bilgisi */}
-						<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
-							<CardHeader className="border-b border-gray-200 dark:border-gray-600">
-								<CardTitle className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
-									<Folder className="w-4 h-4" />
-									<span>Kategori</span>
-								</CardTitle>
-							</CardHeader>
-							<CardContent className="pt-6">
-								{postData.category ? (
-									<div className="space-y-2">
-										<Badge variant="outline" className="text-sm">
-											{postData.category.name}
-										</Badge>
-										{postData.category.description && (
-											<p className="text-sm text-gray-600 dark:text-gray-400">
-												{postData.category.description}
+									<div className="flex items-center space-x-3">
+										<div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+											<Tag className="w-4 h-4 text-gray-600" />
+										</div>
+										<div>
+											<p className="text-sm text-gray-500">Slug</p>
+											<p className="font-mono text-sm text-gray-900 dark:text-white">
+												{postData.slug}
 											</p>
-										)}
+										</div>
 									</div>
-								) : (
-									<p className="text-sm text-gray-500">Kategori atanmamış</p>
-								)}
-							</CardContent>
-						</Card>
 
-						{/* Etiketler */}
-						<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
-							<CardHeader className="border-b border-gray-200 dark:border-gray-600">
-								<CardTitle className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
-									<Tag className="w-4 h-4" />
-									<span>Etiketler</span>
-								</CardTitle>
-							</CardHeader>
-							<CardContent className="pt-6">
-								{postData.tags && postData.tags.length > 0 ? (
-									<div className="flex flex-wrap gap-2">
-										{postData.tags.map((tag) => (
-											<Badge key={tag.id} variant="secondary" className="text-xs">
-												{tag.name}
+									<div className="flex items-center space-x-3">
+										<div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+											<Folder className="w-4 h-4 text-gray-600" />
+										</div>
+										<div>
+											<p className="text-sm text-gray-500">Kategori</p>
+											<p className="font-medium text-gray-900 dark:text-white">
+												{postData.category?.name || "Kategori yok"}
+											</p>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							{/* Durum ve Tarih Bilgileri */}
+							<div className="space-y-4">
+								<div className="flex items-center space-x-2 pb-2 border-b">
+									<Calendar className="w-4 h-4 text-gray-600" />
+									<h3 className="font-semibold text-gray-900">Durum ve Tarih</h3>
+								</div>
+
+								<div className="space-y-3">
+									<div className="flex items-center space-x-3">
+										<div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+											<FileText className="w-4 h-4 text-gray-600" />
+										</div>
+										<div>
+											<p className="text-sm text-gray-500">Durum</p>
+											<Badge 
+												variant="secondary" 
+												className={
+													postData.status === "PUBLISHED" 
+														? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+														: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+												}
+											>
+												{postData.status === "PUBLISHED" ? "Yayında" : "Taslak"}
 											</Badge>
-										))}
+										</div>
 									</div>
-								) : (
-									<p className="text-sm text-gray-500">Etiket atanmamış</p>
-								)}
-							</CardContent>
-						</Card>
 
-						{/* Teknik Bilgiler */}
-						<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
-							<CardHeader className="border-b border-gray-200 dark:border-gray-600">
-								<CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-									Teknik Bilgiler
-								</CardTitle>
-							</CardHeader>
-							<CardContent className="pt-6 space-y-3">
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-600 dark:text-gray-400">ID:</span>
-									<span className="font-mono">{postData.id}</span>
+									<div className="flex items-center space-x-3">
+										<div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+											<Calendar className="w-4 h-4 text-gray-600" />
+										</div>
+										<div>
+											<p className="text-sm text-gray-500">Yayın Tarihi</p>
+											<p className="font-medium text-gray-900 dark:text-white">
+												{postData.publishedAt ? new Date(postData.publishedAt).toLocaleDateString('tr-TR') : "Yayınlanmamış"}
+											</p>
+										</div>
+									</div>
+
+									<div className="flex items-center space-x-3">
+										<div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+											<User className="w-4 h-4 text-gray-600" />
+										</div>
+										<div>
+											<p className="text-sm text-gray-500">Yazar</p>
+											<p className="font-medium text-gray-900 dark:text-white">
+												{postData.authorUsername || "Bilinmeyen"}
+											</p>
+										</div>
+									</div>
 								</div>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-600 dark:text-gray-400">Slug:</span>
-									<span className="font-mono text-xs truncate max-w-[150px]">
-										{postData.slug}
-									</span>
-								</div>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-600 dark:text-gray-400">Dil:</span>
-									<span>{postData.language}</span>
-								</div>
-							</CardContent>
-						</Card>
-					</div>
-				</div>
+							</div>
+						</div>
+					</CardContent>
+				</Card>
+
+				{/* Çeviriler */}
+				<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
+					<CardHeader className="border-b border-gray-200 dark:border-gray-600">
+						<CardTitle className="text-xl font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+							<Globe className="w-5 h-5" />
+							<span>Çeviriler</span>
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="space-y-4">
+							{postData.translations?.map((translation: any, index: number) => (
+								<Card key={index} className="border border-gray-200">
+									<CardHeader className="pb-3">
+										<CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+											{languages.find(
+												(lang) => lang.code === translation.languageCode
+											)?.name || "Çeviri"}
+											<Badge variant="outline" className="text-xs">
+												{translation.languageCode?.toUpperCase()}
+											</Badge>
+										</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										<div>
+											<p className="text-sm text-gray-500 mb-1">Başlık</p>
+											<p className="font-medium text-gray-900 dark:text-white">
+												{translation.title}
+											</p>
+										</div>
+										<div>
+											<p className="text-sm text-gray-500 mb-1">Özet</p>
+											<p className="text-gray-700 dark:text-gray-300">
+												{translation.expert}
+											</p>
+										</div>
+										<div>
+											<p className="text-sm text-gray-500 mb-1">İçerik</p>
+											<div className="prose max-w-none">
+												<p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+													{translation.content}
+												</p>
+											</div>
+										</div>
+									</CardContent>
+								</Card>
+							)) || (
+								<p className="text-gray-500 italic">Çeviri bulunamadı</p>
+							)}
+						</div>
+					</CardContent>
+				</Card>
+
+				{/* Etiketler */}
+				<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
+					<CardHeader className="border-b border-gray-200 dark:border-gray-600">
+						<CardTitle className="text-xl font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+							<Tag className="w-5 h-5" />
+							<span>Etiketler</span>
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="flex flex-wrap gap-2">
+							{postData.tags?.map((tag: any, index: number) => (
+								<Badge 
+									key={index}
+									variant="secondary" 
+									className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+								>
+									{tag.name}
+								</Badge>
+							)) || (
+								<p className="text-gray-500 italic">Etiket bulunamadı</p>
+							)}
+						</div>
+					</CardContent>
+				</Card>
+
+				{/* Öne Çıkan Resim */}
+				{postData.featuredImage && (
+					<Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
+						<CardHeader className="border-b border-gray-200 dark:border-gray-600">
+							<CardTitle className="text-xl font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+								<Image className="w-5 h-5" />
+								<span>Öne Çıkan Resim</span>
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="flex justify-center">
+								<img
+									src={postData.featuredImage}
+									alt="Öne çıkan resim"
+									className="max-w-full h-auto rounded-lg shadow-lg"
+								/>
+							</div>
+						</CardContent>
+					</Card>
+				)}
 			</div>
 
+			{/* Delete Modal */}
 			<DeleteModal
 				isOpen={deleteModal.isOpen}
 				onClose={handleDeleteCancel}
 				onConfirm={handleDeleteConfirm}
-				title="Blog Yazısı Sil"
-				message="Bu blog yazısını silmek istediğinizden emin misiniz?"
+				title="Post Sil"
+				message="Bu postu silmek istediğinizden emin misiniz?"
 				itemName={deleteModal.postTitle}
 				isLoading={deletePostMutation.isPending}
 				confirmText="Sil"
@@ -315,3 +405,9 @@ export default function PostDetailPage() {
 		</div>
 	);
 }
+
+const languages = [
+	{ code: "tr", name: "Türkçe" },
+	{ code: "en", name: "English" },
+	{ code: "de", name: "Deutsch" },
+];

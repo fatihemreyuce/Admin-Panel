@@ -31,6 +31,8 @@ export interface PostResponse {
     category: CategoryResponse;
     authorUsername: string;
     tags: TagResponse[];
+    status: "DRAFT" | "PUBLISHED";
+    translations: TranslationRequest[];
 }
 
 
