@@ -347,7 +347,7 @@ export default function PostCreatePage() {
 													) : (categoriesResponse?.content?.length ?? 0) > 0 ? (
 														categoriesResponse?.content?.map((category: any) => (
 															<SelectItem key={category.id} value={category.id.toString()}>
-																{category.name}
+																{category.name || category.translations?.[0]?.name || `Kategori ${category.id}`}
 															</SelectItem>
 														))
 													) : (
@@ -439,7 +439,7 @@ export default function PostCreatePage() {
 													}`}
 													onClick={() => handleTagToggle(tag)}
 												>
-													{tag.name}
+													{tag.name || tag.translations?.[0]?.name || `Etiket ${tag.id}`}
 												</Badge>
 											);
 										})

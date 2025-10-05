@@ -274,7 +274,9 @@ export default function PostEditPage() {
 													 categoriesError ? <SelectItem value="error" disabled>Kategoriler yüklenemedi</SelectItem> :
 													 (categoriesResponse?.content?.length ?? 0) > 0 ? 
 														categoriesResponse?.content?.map((category: any) => (
-															<SelectItem key={category.id} value={category.id.toString()}>{category.name}</SelectItem>
+															<SelectItem key={category.id} value={category.id.toString()}>
+																{category.name || category.translations?.[0]?.name || `Kategori ${category.id}`}
+															</SelectItem>
 														)) : <SelectItem value="empty" disabled>Kategori bulunamadı</SelectItem>}
 												</SelectContent>
 											</Select>
@@ -329,7 +331,7 @@ export default function PostEditPage() {
 													className={`cursor-pointer ${isSelected ? "bg-blue-600 text-white" : "hover:bg-blue-50"}`}
 													onClick={() => handleTagToggle(tag)}
 												>
-													{tag.name}
+													{tag.name || tag.translations?.[0]?.name || `Etiket ${tag.id}`}
 												</Badge>
 											);
 										}) : <Badge variant="outline" className="text-gray-500">Etiket bulunamadı</Badge>}
