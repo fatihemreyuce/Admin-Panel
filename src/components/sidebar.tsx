@@ -52,10 +52,10 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
 			description: "Tag yönetimi",
 		},
 		{
-			name: "Blog Listesi",
+			name: "Post Listesi",
 			href: "/posts",
 			icon: BookOpen,
-			description: "Blog yönetimi",
+			description: "Post yönetimi",
 		},
 		{
 			name: "Ayarlar",
