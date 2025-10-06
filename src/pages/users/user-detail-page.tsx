@@ -1,40 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUserById, useUpdateUser } from "@/hooks/use-user";
 import { ArrowLeft, Edit, Save, X, User, Mail, Calendar, Crown, FileText, Lock } from "lucide-react";
-import { z } from "zod";
 import type { UpdateUserRequest } from "@/types/user.types";
-
-// Zod şeması
-const userEditSchema = z.object({
-	username: z
-		.string()
-		.min(1, "Kullanıcı adı gereklidir")
-		.min(3, "Kullanıcı adı en az 3 karakter olmalıdır"),
-	email: z
-		.string()
-		.min(1, "Email gereklidir")
-		.email("Geçerli bir email adresi giriniz"),
-	password: z
-		.string()
-		.optional()
-		.refine((val) => !val || val.length >= 6, "Şifre en az 6 karakter olmalıdır"),
-	firstName: z
-		.string()
-		.min(1, "Ad gereklidir")
-		.min(2, "Ad en az 2 karakter olmalıdır"),
-	lastName: z
-		.string()
-		.min(1, "Soyad gereklidir")
-		.min(2, "Soyad en az 2 karakter olmalıdır"),
-	isActive: z.boolean().optional(),
-	role: z.enum(["USER", "ADMIN", "MODERATOR"]).optional(),
-	bio: z.string().optional(),
-});
+import { userEditSchema, type UserEditInput } from "@/validations";
 
 const getRoleDisplayName = (role: string) => 
   ({ ADMIN: 'Yönetici', MODERATOR: 'Moderatör', USER: 'Kullanıcı' }[role] || role);
@@ -193,7 +168,7 @@ export default function UserDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button variant="outline" onClick={() => navigate("/users")} className="text-black border-gray-300">

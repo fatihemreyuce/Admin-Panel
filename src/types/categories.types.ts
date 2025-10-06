@@ -8,7 +8,7 @@ export interface TranslationRequest {
 
 export interface CategoryRequest {
 	slug: string;
-	parentId: number;
+	parentId: number | null;
 	translations: TranslationRequest[];
 }
 

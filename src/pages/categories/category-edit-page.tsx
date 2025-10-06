@@ -27,30 +27,7 @@ import type {
 	CategoryRequest,
 	TranslationRequest,
 } from "@/types/categories.types";
-
-// Zod şeması
-const categoryEditSchema = z.object({
-	slug: z
-		.string()
-		.min(1, "Slug gereklidir")
-		.regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
-	parentId: z
-		.number()
-		.min(0, "Üst kategori ID 0 veya pozitif olmalıdır"),
-	translations: z
-		.array(
-			z.object({
-				languageCode: z
-					.string()
-					.min(1, "Dil kodu gereklidir"),
-				name: z
-					.string()
-					.min(1, "Kategori adı gereklidir"),
-				description: z.string().optional(),
-			})
-		)
-		.min(1, "En az bir dil çevirisi gereklidir"),
-});
+import { categoryEditSchema } from "@/validations";
 
 export default function CategoryEditPage() {
 	const { id } = useParams<{ id: string }>();
@@ -336,21 +313,20 @@ export default function CategoryEditPage() {
 									</div>
 
 									<div className="space-y-2">
-										<Label htmlFor="parentId">Üst Kategori ID</Label>
-										<Input
-											id="parentId"
-											type="number"
-											placeholder="0 (ana kategori)"
-											value={formData.parentId}
-											onChange={(e) =>
-												handleInputChange(
-													"parentId",
-													parseInt(e.target.value) || 0
-												)
-											}
-											disabled={isFormDisabled}
-											className={`${errors.parentId ? "border-red-500" : ""}`}
-										/>
+		<Label htmlFor="parentId">Üst Kategori ID</Label>
+		<Input
+			id="parentId"
+			type="text"
+			placeholder="Boş bırakılırsa NULL olur"
+			value={formData.parentId === null ? "" : String(formData.parentId)}
+			onChange={(e) => {
+				const raw = e.target.value.trim();
+				const next = raw === "" ? null : Number.isNaN(Number(raw)) ? formData.parentId : Math.max(0, Number(raw));
+				handleInputChange("parentId", next as any);
+			}}
+			disabled={isFormDisabled}
+			className={`${errors.parentId ? "border-red-500" : ""}`}
+		/>
 										{errors.parentId && (
 											<p className="text-sm text-red-600">{errors.parentId}</p>
 										)}

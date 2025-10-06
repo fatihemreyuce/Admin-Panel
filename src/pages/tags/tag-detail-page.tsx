@@ -129,7 +129,7 @@ export default function TagDetailPage() {
 	return (
 		<div className="min-h-screen">
 			<div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-				<div className="px-4 py-2">
+				<div className="px-6 py-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-3">
 							<Button

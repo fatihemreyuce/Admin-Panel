@@ -25,30 +25,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import type { TagRequest, TranslationRequest } from "@/types/tags.types";
-
-// Zod şeması
-const tagSchema = z.object({
-	slug: z
-		.string()
-		.min(1, "Slug gereklidir")
-		.regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
-	color: z
-		.string()
-		.min(1, "Renk gereklidir")
-		.regex(/^#[0-9A-Fa-f]{6}$/, "Geçerli bir hex renk kodu giriniz (#RRGGBB)"),
-	translations: z
-		.array(
-			z.object({
-				languageCode: z
-					.string()
-					.min(1, "Dil kodu gereklidir"),
-				name: z
-					.string()
-					.min(1, "Tag adı gereklidir"),
-			})
-		)
-		.min(1, "En az bir dil çevirisi gereklidir"),
-});
+import { tagEditSchema } from "@/validations";
 
 export default function TagEditPage() {
 	const navigate = useNavigate();
@@ -105,7 +82,7 @@ export default function TagEditPage() {
 
 	const validateForm = (): boolean => {
 		try {
-			tagSchema.parse(formData);
+			tagEditSchema.parse(formData);
 			setErrors({});
 			return true;
 		} catch (error) {
@@ -300,7 +277,7 @@ export default function TagEditPage() {
 	return (
 		<div className="min-h-screen w-full">
 			<div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 w-full">
-				<div className="px-8 py-4">
+				<div className="px-6 py-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-4">
 							<Button

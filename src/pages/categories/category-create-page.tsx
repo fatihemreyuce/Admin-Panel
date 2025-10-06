@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,35 +23,11 @@ import {
 	Plus,
 	X,
 } from "lucide-react";
-import { z } from "zod";
 import type {
 	CategoryRequest,
 	TranslationRequest,
 } from "@/types/categories.types";
-
-// Zod şeması
-const categorySchema = z.object({
-	slug: z
-		.string()
-		.min(1, "Slug gereklidir")
-		.regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
-	parentId: z
-		.number()
-		.min(0, "Üst kategori ID 0 veya pozitif olmalıdır"),
-	translations: z
-		.array(
-			z.object({
-				languageCode: z
-					.string()
-					.min(1, "Dil kodu gereklidir"),
-				name: z
-					.string()
-					.min(1, "Kategori adı gereklidir"),
-				description: z.string().optional(),
-			})
-		)
-		.min(1, "En az bir dil çevirisi gereklidir"),
-});
+import { categoryCreateSchema, type CategoryCreateInput } from "@/validations";
 
 export default function CategoryCreatePage() {
 	const navigate = useNavigate();
@@ -61,59 +39,42 @@ export default function CategoryCreatePage() {
 		{ code: "de", name: "Deutsch" },
 	];
 
-	const [formData, setFormData] = useState<CategoryRequest>({
-		slug: "",
-		parentId: 0,
-		translations: [
-			{
-				languageCode: "tr",
-				name: "",
-				description: "",
-			},
-		],
+	const {
+		register,
+		handleSubmit,
+		control,
+		formState: { errors, isSubmitting },
+		setError,
+		setValue,
+		watch,
+	} = useForm<CategoryCreateInput>({
+		resolver: zodResolver(categoryCreateSchema),
+		defaultValues: {
+			slug: "",
+			parentId: null,
+			translations: [
+				{
+					languageCode: "tr",
+					name: "",
+					description: "",
+				},
+			],
+		},
 	});
 
-	const [errors, setErrors] = useState<{
-		slug?: string;
-		parentId?: string;
-		translations?: string;
-		submit?: string;
-	}>({});
+	const { fields, append, remove } = useFieldArray({
+		control,
+		name: "translations",
+	});
 
-	const validateForm = (): boolean => {
-		try {
-			categorySchema.parse(formData);
-			setErrors({});
-			return true;
-		} catch (error) {
-			if (error instanceof z.ZodError) {
-				const newErrors: { slug?: string; parentId?: string; translations?: string } = {};
-				
-				error.errors.forEach((err) => {
-					const path = err.path.join('.');
-					if (path === 'slug') {
-						newErrors.slug = err.message;
-					} else if (path === 'parentId') {
-						newErrors.parentId = err.message;
-					} else if (path.startsWith('translations')) {
-						newErrors.translations = err.message;
-					}
-				});
-				
-				setErrors(newErrors);
-			}
-			return false;
-		}
-	};
+	const [submitError, setSubmitError] = useState<string>("");
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setErrors({});
+
+	const onSubmit = async (data: CategoryCreateInput) => {
+		setSubmitError("");
 		
-		if (!validateForm()) return;
-
 		try {
-			await createCategoryMutation.mutateAsync(formData);
+			await createCategoryMutation.mutateAsync(data);
 			navigate("/categories");
 		} catch (error: any) {
 			console.error("Create category error:", error);
@@ -125,88 +86,47 @@ export default function CategoryCreatePage() {
 				const apiMessage = error.response.data.message;
 				if (apiMessage.includes("Parent category not found")) {
 					errorMessage = "Belirtilen üst kategori ID'si bulunamadı. Lütfen geçerli bir ID girin veya ana kategori için 0 kullanın.";
-					setErrors({ parentId: errorMessage });
+					setError("parentId", { message: errorMessage });
 				} else if (apiMessage.includes("already exists")) {
 					errorMessage = "Bu slug zaten kullanılıyor. Lütfen farklı bir slug deneyin.";
-					setErrors({ slug: errorMessage });
+					setError("slug", { message: errorMessage });
 				} else {
-					setErrors({ submit: apiMessage });
+					setSubmitError(apiMessage);
 				}
 			} else {
-				setErrors({ submit: errorMessage });
+				setSubmitError(errorMessage);
 			}
 		}
 	};
 
-	const handleInputChange = (
-		field: keyof CategoryRequest,
-		value: string | number | TranslationRequest[]
-	) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-		if (field === "slug" && errors.slug) {
-			setErrors((prev) => ({ ...prev, slug: undefined }));
-		}
-		if (field === "parentId" && errors.parentId) {
-			setErrors((prev) => ({ ...prev, parentId: undefined }));
-		}
-		if (field === "translations" && errors.translations) {
-			setErrors((prev) => ({ ...prev, translations: undefined }));
-		}
-		if (errors.submit) {
-			setErrors((prev) => ({ ...prev, submit: undefined }));
-		}
-	};
-
-	const handleTranslationChange = (
-		index: number,
-		field: keyof TranslationRequest,
-		value: string
-	) => {
-		const newTranslations = [...formData.translations];
-		newTranslations[index] = { ...newTranslations[index], [field]: value };
-		handleInputChange("translations", newTranslations);
-	};
 
 	const getAvailableLanguages = (currentIndex: number) => {
-		const usedLanguages = formData.translations
+		const usedLanguages = fields
 			.filter((_, index) => index !== currentIndex)
 			.map((t) => t.languageCode);
 		return languages.filter((lang) => !usedLanguages.includes(lang.code));
 	};
 
 	const addTranslation = () => {
-		const usedLanguages = formData.translations.map((t) => t.languageCode);
+		const usedLanguages = fields.map((t) => t.languageCode);
 		const availableLanguage = languages.find(
 			(lang) => !usedLanguages.includes(lang.code)
 		);
 		if (availableLanguage) {
-			const newTranslations = [
-				...formData.translations,
-				{
-					languageCode: availableLanguage.code,
-					name: "",
-					description: "",
-				},
-			];
-			handleInputChange("translations", newTranslations);
+			append({
+				languageCode: availableLanguage.code,
+				name: "",
+				description: "",
+			});
 		}
 	};
 
-	const removeTranslation = (index: number) => {
-		if (formData.translations.length > 1) {
-			const newTranslations = formData.translations.filter(
-				(_, i) => i !== index
-			);
-			handleInputChange("translations", newTranslations);
-		}
-	};
-
-	const isFormDisabled = createCategoryMutation.isPending;
+	const isFormDisabled = createCategoryMutation.isPending || isSubmitting;
 
 	return (
 		<div className="min-h-screen w-full">
 			<div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 w-full">
-				<div className="px-8 py-4">
+				<div className="px-6 py-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-4">
 							<Button
@@ -244,7 +164,7 @@ export default function CategoryCreatePage() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<form onSubmit={handleSubmit} className="space-y-6">
+						<form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 							<div className="space-y-4">
 								<div className="flex items-center space-x-2 pb-2 border-b">
 									<Tag className="w-4 h-4 text-gray-600" />
@@ -261,10 +181,7 @@ export default function CategoryCreatePage() {
 											<Input
 												id="slug"
 												placeholder="kategori-slug"
-												value={formData.slug}
-												onChange={(e) =>
-													handleInputChange("slug", e.target.value)
-												}
+												{...register("slug")}
 												disabled={isFormDisabled}
 												className={`pl-10 ${
 													errors.slug ? "border-red-500" : ""
@@ -272,28 +189,27 @@ export default function CategoryCreatePage() {
 											/>
 										</div>
 										{errors.slug && (
-											<p className="text-sm text-red-600">{errors.slug}</p>
+											<p className="text-sm text-red-600">{errors.slug.message}</p>
 										)}
 									</div>
 
 									<div className="space-y-2">
-										<Label htmlFor="parentId">Üst Kategori ID</Label>
-										<Input
-											id="parentId"
-											type="number"
-											placeholder="0 (ana kategori)"
-											value={formData.parentId}
-											onChange={(e) =>
-												handleInputChange(
-													"parentId",
-													parseInt(e.target.value) || 0
-												)
-											}
-											disabled={isFormDisabled}
-											className={`${errors.parentId ? "border-red-500" : ""}`}
-										/>
+		<Label htmlFor="parentId">Üst Kategori ID</Label>
+		<Input
+			id="parentId"
+			type="text"
+			placeholder="Boş bırakılırsa NULL olur"
+			{...register("parentId", {
+				setValueAs: (value) => {
+					const raw = value.trim();
+					return raw === "" ? null : Number.isNaN(Number(raw)) ? null : Math.max(0, Number(raw));
+				}
+			})}
+			disabled={isFormDisabled}
+			className={`${errors.parentId ? "border-red-500" : ""}`}
+		/>
 										{errors.parentId && (
-											<p className="text-sm text-red-600">{errors.parentId}</p>
+											<p className="text-sm text-red-600">{errors.parentId.message}</p>
 										)}
 									</div>
 								</div>
@@ -310,17 +226,17 @@ export default function CategoryCreatePage() {
 										variant="outline"
 										size="sm"
 										onClick={addTranslation}
-										disabled={
-											isFormDisabled ||
-											formData.translations.length >= languages.length
-										}
+									disabled={
+										isFormDisabled ||
+										fields.length >= languages.length
+									}
 									>
 										<Plus className="w-4 h-4 mr-2" />
 										Çeviri Ekle
 									</Button>
 								</div>
 
-								{formData.translations.map((translation, index) => (
+								{fields.map((translation, index) => (
 									<Card key={index} className="border border-gray-200">
 										<CardHeader className="pb-3">
 											<div className="flex items-center justify-between">
@@ -330,12 +246,12 @@ export default function CategoryCreatePage() {
 													)?.name || "Çeviri"}{" "}
 													({translation.languageCode.toUpperCase()})
 												</CardTitle>
-												{formData.translations.length > 1 && (
+												{fields.length > 1 && (
 													<Button
 														type="button"
 														variant="outline"
 														size="sm"
-														onClick={() => removeTranslation(index)}
+														onClick={() => remove(index)}
 														disabled={isFormDisabled}
 														className="h-6 w-6 p-0 text-red-600"
 													>
@@ -348,28 +264,28 @@ export default function CategoryCreatePage() {
 											<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 												<div className="space-y-2">
 													<Label htmlFor={`language-${index}`}>Dil *</Label>
-													<Select
-														value={translation.languageCode}
-														onValueChange={(value) =>
-															handleTranslationChange(
-																index,
-																"languageCode",
-																value
-															)
-														}
-														disabled={isFormDisabled}
-													>
-														<SelectTrigger className="w-full">
-															<SelectValue placeholder="Dil seçin" />
-														</SelectTrigger>
-														<SelectContent>
-															{getAvailableLanguages(index).map((lang) => (
-																<SelectItem key={lang.code} value={lang.code}>
-																	{lang.name} ({lang.code.toUpperCase()})
-																</SelectItem>
-															))}
-														</SelectContent>
-													</Select>
+													<Controller
+														name={`translations.${index}.languageCode`}
+														control={control}
+														render={({ field }) => (
+															<Select
+																value={field.value}
+																onValueChange={field.onChange}
+																disabled={isFormDisabled}
+															>
+																<SelectTrigger className="w-full">
+																	<SelectValue placeholder="Dil seçin" />
+																</SelectTrigger>
+																<SelectContent>
+																	{getAvailableLanguages(index).map((lang) => (
+																		<SelectItem key={lang.code} value={lang.code}>
+																			{lang.name} ({lang.code.toUpperCase()})
+																		</SelectItem>
+																	))}
+																</SelectContent>
+															</Select>
+														)}
+													/>
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor={`name-${index}`}>
@@ -378,14 +294,7 @@ export default function CategoryCreatePage() {
 													<Input
 														id={`name-${index}`}
 														placeholder="Kategori adı"
-														value={translation.name}
-														onChange={(e) =>
-															handleTranslationChange(
-																index,
-																"name",
-																e.target.value
-															)
-														}
+														{...register(`translations.${index}.name`)}
 														disabled={isFormDisabled}
 													/>
 												</div>
@@ -396,14 +305,7 @@ export default function CategoryCreatePage() {
 													<Input
 														id={`description-${index}`}
 														placeholder="Kategori açıklaması"
-														value={translation.description}
-														onChange={(e) =>
-															handleTranslationChange(
-																index,
-																"description",
-																e.target.value
-															)
-														}
+														{...register(`translations.${index}.description`)}
 														disabled={isFormDisabled}
 													/>
 												</div>
@@ -412,13 +314,13 @@ export default function CategoryCreatePage() {
 									</Card>
 								))}
 								{errors.translations && (
-									<p className="text-sm text-red-600">{errors.translations}</p>
+									<p className="text-sm text-red-600">{errors.translations.message}</p>
 								)}
 							</div>
 
-							{errors.submit && (
+							{submitError && (
 								<div className="bg-red-50 border border-red-200 rounded-lg p-4">
-									<p className="text-sm text-red-600">{errors.submit}</p>
+									<p className="text-sm text-red-600">{submitError}</p>
 								</div>
 							)}
 

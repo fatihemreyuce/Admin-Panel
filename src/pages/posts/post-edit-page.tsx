@@ -12,18 +12,7 @@ import { useTags } from "@/hooks/use-tags";
 import { ArrowLeft, Edit, FileText, Globe, Plus, X, Image, Loader2, Tag, Folder } from "lucide-react";
 import { z } from "zod";
 import type { PostRequest, TranslationRequest } from "@/types/post.types";
-
-const postSchema = z.object({
-	slug: z.string().min(1, "Slug gereklidir").regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
-	categoryId: z.number().min(1, "Kategori seçimi gereklidir"),
-	status: z.enum(["DRAFT", "PUBLISHED"]),
-	translations: z.array(z.object({
-		languageCode: z.string().min(1, "Dil kodu gereklidir"),
-		title: z.string().min(1, "Post başlığı gereklidir"),
-		expert: z.string().min(1, "Özet gereklidir"),
-		content: z.string().min(1, "İçerik gereklidir"),
-	})).min(1, "En az bir dil çevirisi gereklidir"),
-});
+import { postEditSchema } from "@/validations";
 
 const languages = [
 	{ code: "tr", name: "Türkçe" },
@@ -46,6 +35,8 @@ export default function PostEditPage() {
 		translations: [{ languageCode: "tr", title: "", expert: "", content: "" }],
 		image: new File([], ""),
 	});
+
+	const [imagePreview, setImagePreview] = useState<string | null>(null);
 
 	const [errors, setErrors] = useState<{ slug?: string; categoryId?: string; translations?: string; submit?: string }>({});
 
@@ -74,9 +65,15 @@ export default function PostEditPage() {
 		}
 	}, [postData]);
 
+	useEffect(() => {
+		return () => {
+			if (imagePreview) URL.revokeObjectURL(imagePreview);
+		};
+	}, [imagePreview]);
+
 	const validateForm = (): boolean => {
 		try {
-			postSchema.parse(formData);
+			postEditSchema.parse(formData);
 			setErrors({});
 			return true;
 		} catch (error) {
@@ -301,14 +298,25 @@ export default function PostEditPage() {
 											<div className="flex-1">
 												<input
 													id="image" type="file" accept="image/*"
-													onChange={(e) => { const file = e.target.files?.[0]; if (file) handleInputChange("image", file); }}
+									onChange={(e) => {
+										const file = e.target.files?.[0];
+										if (file) {
+											if (imagePreview) URL.revokeObjectURL(imagePreview);
+											setImagePreview(URL.createObjectURL(file));
+											handleInputChange("image", file);
+										}
+									}}
 													disabled={isFormDisabled}
 													className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700"
 												/>
 											</div>
-											<div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-												<Image className="w-8 h-8 text-gray-400" />
-											</div>
+						<div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+							{imagePreview ? (
+								<img src={imagePreview} alt="Önizleme" className="w-full h-full object-cover" />
+							) : (
+								<Image className="w-8 h-8 text-gray-400" />
+							)}
+						</div>
 										</div>
 									</div>
 								</div>

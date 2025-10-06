@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,32 +24,7 @@ import {
 	Palette,
 	Loader2,
 } from "lucide-react";
-import { z } from "zod";
-import type { TagRequest, TranslationRequest } from "@/types/tags.types";
-
-// Zod şeması
-const tagSchema = z.object({
-	slug: z
-		.string()
-		.min(1, "Slug gereklidir")
-		.regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
-	color: z
-		.string()
-		.min(1, "Renk gereklidir")
-		.regex(/^#[0-9A-Fa-f]{6}$/, "Geçerli bir hex renk kodu giriniz (#RRGGBB)"),
-	translations: z
-		.array(
-			z.object({
-				languageCode: z
-					.string()
-					.min(1, "Dil kodu gereklidir"),
-				name: z
-					.string()
-					.min(1, "Tag adı gereklidir"),
-			})
-		)
-		.min(1, "En az bir dil çevirisi gereklidir"),
-});
+import { tagCreateSchema, type TagCreateInput } from "@/validations";
 
 export default function TagCreatePage() {
 	const navigate = useNavigate();
@@ -59,58 +36,38 @@ export default function TagCreatePage() {
 		{ code: "de", name: "Deutsch" },
 	];
 
-	const [formData, setFormData] = useState<TagRequest>({
-		slug: "",
-		color: "#3B82F6",
-		translations: [
-			{
-				languageCode: "tr",
-				name: "",
-			},
-		],
+	const {
+		register,
+		handleSubmit,
+		control,
+		formState: { errors, isSubmitting },
+		setError,
+	} = useForm<TagCreateInput>({
+		resolver: zodResolver(tagCreateSchema),
+		defaultValues: {
+			slug: "",
+			color: "#3B82F6",
+			translations: [
+				{
+					languageCode: "tr",
+					name: "",
+				},
+			],
+		},
 	});
 
-	const [errors, setErrors] = useState<{
-		slug?: string;
-		color?: string;
-		translations?: string;
-		submit?: string;
-	}>({});
+	const { fields, append, remove } = useFieldArray({
+		control,
+		name: "translations",
+	});
 
-	const validateForm = (): boolean => {
-		try {
-			tagSchema.parse(formData);
-			setErrors({});
-			return true;
-		} catch (error) {
-			if (error instanceof z.ZodError) {
-				const newErrors: { slug?: string; color?: string; translations?: string } = {};
-				
-				error.issues.forEach((err) => {
-					const path = err.path.join('.');
-					if (path === 'slug') {
-						newErrors.slug = err.message;
-					} else if (path === 'color') {
-						newErrors.color = err.message;
-					} else if (path.startsWith('translations')) {
-						newErrors.translations = err.message;
-					}
-				});
-				
-				setErrors(newErrors);
-			}
-			return false;
-		}
-	};
+	const [submitError, setSubmitError] = useState<string>("");
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setErrors({});
+	const onSubmit = async (data: TagCreateInput) => {
+		setSubmitError("");
 		
-		if (!validateForm()) return;
-
 		try {
-			await createTagMutation.mutateAsync(formData);
+			await createTagMutation.mutateAsync(data);
 			navigate("/tags");
 		} catch (error: any) {
 			console.error("Create tag error:", error);
@@ -122,84 +79,42 @@ export default function TagCreatePage() {
 				const apiMessage = error.response.data.message;
 				if (apiMessage.includes("already exists")) {
 					errorMessage = "Bu slug zaten kullanılıyor. Lütfen farklı bir slug deneyin.";
-					setErrors({ slug: errorMessage });
+					setError("slug", { message: errorMessage });
 				} else {
-					setErrors({ submit: apiMessage });
+					setSubmitError(apiMessage);
 				}
 			} else {
-				setErrors({ submit: errorMessage });
+				setSubmitError(errorMessage);
 			}
 		}
 	};
 
-	const handleInputChange = (
-		field: keyof TagRequest,
-		value: string | TranslationRequest[]
-	) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-		if (field === "slug" && errors.slug) {
-			setErrors((prev) => ({ ...prev, slug: undefined }));
-		}
-		if (field === "color" && errors.color) {
-			setErrors((prev) => ({ ...prev, color: undefined }));
-		}
-		if (field === "translations" && errors.translations) {
-			setErrors((prev) => ({ ...prev, translations: undefined }));
-		}
-		if (errors.submit) {
-			setErrors((prev) => ({ ...prev, submit: undefined }));
-		}
-	};
-
-	const handleTranslationChange = (
-		index: number,
-		field: keyof TranslationRequest,
-		value: string
-	) => {
-		const newTranslations = [...formData.translations];
-		newTranslations[index] = { ...newTranslations[index], [field]: value };
-		handleInputChange("translations", newTranslations);
-	};
-
 	const getAvailableLanguages = (currentIndex: number) => {
-		const usedLanguages = formData.translations
+		const usedLanguages = fields
 			.filter((_, index) => index !== currentIndex)
 			.map((t) => t.languageCode);
 		return languages.filter((lang) => !usedLanguages.includes(lang.code));
 	};
 
 	const addTranslation = () => {
-		const usedLanguages = formData.translations.map((t) => t.languageCode);
+		const usedLanguages = fields.map((t) => t.languageCode);
 		const availableLanguage = languages.find(
 			(lang) => !usedLanguages.includes(lang.code)
 		);
 		if (availableLanguage) {
-			const newTranslations = [
-				...formData.translations,
-				{
-					languageCode: availableLanguage.code,
-					name: "",
-				},
-			];
-			handleInputChange("translations", newTranslations);
+			append({
+				languageCode: availableLanguage.code,
+				name: "",
+			});
 		}
 	};
 
-	const removeTranslation = (index: number) => {
-		if (formData.translations.length > 1) {
-			const newTranslations = formData.translations.filter(
-				(_, i) => i !== index
-			);
-			handleInputChange("translations", newTranslations);
-		}
-	};
-
-	const isFormDisabled = createTagMutation.isPending;
+	const isFormDisabled = createTagMutation.isPending || isSubmitting;
 
 	return (
 		<div className="min-h-screen w-full">
 			<div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 w-full">
-				<div className="px-8 py-4">
+				<div className="px-6 py-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-4">
 							<Button
@@ -237,7 +152,7 @@ export default function TagCreatePage() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<form onSubmit={handleSubmit} className="space-y-6">
+						<form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 							<div className="space-y-4">
 								<div className="flex items-center space-x-2 pb-2 border-b">
 									<Tag className="w-4 h-4 text-gray-600" />
@@ -254,10 +169,7 @@ export default function TagCreatePage() {
 											<Input
 												id="slug"
 												placeholder="tag-slug"
-												value={formData.slug}
-												onChange={(e) =>
-													handleInputChange("slug", e.target.value)
-												}
+												{...register("slug")}
 												disabled={isFormDisabled}
 												className={`pl-10 ${
 													errors.slug ? "border-red-500" : ""
@@ -265,7 +177,7 @@ export default function TagCreatePage() {
 											/>
 										</div>
 										{errors.slug && (
-											<p className="text-sm text-red-600">{errors.slug}</p>
+											<p className="text-sm text-red-600">{errors.slug.message}</p>
 										)}
 									</div>
 
@@ -276,10 +188,7 @@ export default function TagCreatePage() {
 											<Input
 												id="color"
 												type="color"
-												value={formData.color}
-												onChange={(e) =>
-													handleInputChange("color", e.target.value)
-												}
+												{...register("color")}
 												disabled={isFormDisabled}
 												className={`pl-10 h-12 ${
 													errors.color ? "border-red-500" : ""
@@ -287,7 +196,7 @@ export default function TagCreatePage() {
 											/>
 										</div>
 										{errors.color && (
-											<p className="text-sm text-red-600">{errors.color}</p>
+											<p className="text-sm text-red-600">{errors.color.message}</p>
 										)}
 									</div>
 								</div>
@@ -306,7 +215,7 @@ export default function TagCreatePage() {
 										onClick={addTranslation}
 										disabled={
 											isFormDisabled ||
-											formData.translations.length >= languages.length
+											fields.length >= languages.length
 										}
 									>
 										<Plus className="w-4 h-4 mr-2" />
@@ -314,7 +223,7 @@ export default function TagCreatePage() {
 									</Button>
 								</div>
 
-								{formData.translations.map((translation, index) => (
+								{fields.map((translation, index) => (
 									<Card key={index} className="border border-gray-200">
 										<CardHeader className="pb-3">
 											<div className="flex items-center justify-between">
@@ -326,12 +235,12 @@ export default function TagCreatePage() {
 														{translation.languageCode.toUpperCase()}
 													</Badge>
 												</CardTitle>
-												{formData.translations.length > 1 && (
+												{fields.length > 1 && (
 													<Button
 														type="button"
 														variant="outline"
 														size="sm"
-														onClick={() => removeTranslation(index)}
+														onClick={() => remove(index)}
 														disabled={isFormDisabled}
 														className="h-6 w-6 p-0 text-red-600"
 													>
@@ -344,28 +253,28 @@ export default function TagCreatePage() {
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<div className="space-y-2">
 													<Label htmlFor={`language-${index}`}>Dil *</Label>
-													<Select
-														value={translation.languageCode}
-														onValueChange={(value) =>
-															handleTranslationChange(
-																index,
-																"languageCode",
-																value
-															)
-														}
-														disabled={isFormDisabled}
-													>
-														<SelectTrigger className="w-full">
-															<SelectValue placeholder="Dil seçin" />
-														</SelectTrigger>
-														<SelectContent>
-															{getAvailableLanguages(index).map((lang) => (
-																<SelectItem key={lang.code} value={lang.code}>
-																	{lang.name} ({lang.code.toUpperCase()})
-																</SelectItem>
-															))}
-														</SelectContent>
-													</Select>
+													<Controller
+														name={`translations.${index}.languageCode`}
+														control={control}
+														render={({ field }) => (
+															<Select
+																value={field.value}
+																onValueChange={field.onChange}
+																disabled={isFormDisabled}
+															>
+																<SelectTrigger className="w-full">
+																	<SelectValue placeholder="Dil seçin" />
+																</SelectTrigger>
+																<SelectContent>
+																	{getAvailableLanguages(index).map((lang) => (
+																		<SelectItem key={lang.code} value={lang.code}>
+																			{lang.name} ({lang.code.toUpperCase()})
+																		</SelectItem>
+																	))}
+																</SelectContent>
+															</Select>
+														)}
+													/>
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor={`name-${index}`}>
@@ -374,14 +283,7 @@ export default function TagCreatePage() {
 													<Input
 														id={`name-${index}`}
 														placeholder="Tag adı"
-														value={translation.name}
-														onChange={(e) =>
-															handleTranslationChange(
-																index,
-																"name",
-																e.target.value
-															)
-														}
+														{...register(`translations.${index}.name`)}
 														disabled={isFormDisabled}
 													/>
 												</div>
@@ -390,15 +292,15 @@ export default function TagCreatePage() {
 									</Card>
 								))}
 								{errors.translations && (
-									<p className="text-sm text-red-600">{errors.translations}</p>
+									<p className="text-sm text-red-600">{errors.translations.message}</p>
 								)}
 							</div>
 
-							{errors.submit && (
-								<div className="bg-red-50 border border-red-200 rounded-lg p-4">
-									<p className="text-sm text-red-600">{errors.submit}</p>
-								</div>
-							)}
+								{submitError && (
+									<div className="bg-red-50 border border-red-200 rounded-lg p-4">
+										<p className="text-sm text-red-600">{submitError}</p>
+									</div>
+								)}
 
 							<div className="flex justify-end space-x-4 pt-4 border-t">
 								<Button

@@ -1,109 +1,49 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCreateUser } from "@/hooks/use-user";
 import { ArrowLeft, UserPlus, Mail, User, Lock, Shield, FileText, Image } from "lucide-react";
-import { z } from "zod";
 import type { CreateUserRequest } from "@/types/user.types";
-
-// Zod şeması
-const userSchema = z.object({
-	username: z
-		.string()
-		.min(1, "Kullanıcı adı gereklidir")
-		.min(3, "Kullanıcı adı en az 3 karakter olmalıdır"),
-	email: z
-		.string()
-		.min(1, "Email gereklidir")
-		.email("Geçerli bir email adresi giriniz"),
-	password: z
-		.string()
-		.min(1, "Şifre gereklidir")
-		.min(6, "Şifre en az 6 karakter olmalıdır"),
-	firstName: z
-		.string()
-		.min(1, "Ad gereklidir")
-		.min(2, "Ad en az 2 karakter olmalıdır"),
-	lastName: z
-		.string()
-		.min(1, "Soyad gereklidir")
-		.min(2, "Soyad en az 2 karakter olmalıdır"),
-	isActive: z.boolean().optional(),
-	role: z.enum(["USER", "ADMIN", "MODERATOR"]).optional(),
-	bio: z.string().optional(),
-});
+import { userCreateSchema, type UserCreateInput } from "@/validations";
 
 export default function UserCreatePage() {
   const navigate = useNavigate();
   const createUserMutation = useCreateUser();
-
-  const [formData, setFormData] = useState<CreateUserRequest>({
-    username: "",
-    email: "",
-    password: "",
-    firstName: "",
-    lastName: "",
-    isActive: true,
-    role: "USER",
-    bio: "",
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setError,
+    clearErrors,
+    watch,
+    setValue,
+  } = useForm<UserCreateInput>({
+    resolver: zodResolver(userCreateSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      firstName: "",
+      lastName: "",
+      isActive: true,
+      role: "USER",
+      bio: "",
+    },
   });
 
-  const [errors, setErrors] = useState<{
-    username?: string;
-    email?: string;
-    password?: string;
-    firstName?: string;
-    lastName?: string;
-    submit?: string;
-  }>({});
+  const [submitError, setSubmitError] = useState<string>("");
 
-  const validateForm = (): boolean => {
-    try {
-      userSchema.parse(formData);
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const newErrors: {
-          username?: string;
-          email?: string;
-          password?: string;
-          firstName?: string;
-          lastName?: string;
-        } = {};
-        
-        error.issues.forEach((err) => {
-          const path = err.path.join('.');
-          if (path === 'username') {
-            newErrors.username = err.message;
-          } else if (path === 'email') {
-            newErrors.email = err.message;
-          } else if (path === 'password') {
-            newErrors.password = err.message;
-          } else if (path === 'firstName') {
-            newErrors.firstName = err.message;
-          } else if (path === 'lastName') {
-            newErrors.lastName = err.message;
-          }
-        });
-        
-        setErrors(newErrors);
-      }
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
+  const onSubmit = async (data: UserCreateInput) => {
+    setSubmitError("");
     
-    if (!validateForm()) return;
-
     try {
-      await createUserMutation.mutateAsync(formData);
+      await createUserMutation.mutateAsync(data);
       navigate("/users");
     } catch (error: any) {
       console.error("Create user error:", error);
@@ -115,37 +55,27 @@ export default function UserCreatePage() {
         const apiMessage = error.response.data.message;
         if (apiMessage.includes("already exists") || apiMessage.includes("duplicate")) {
           if (apiMessage.includes("email")) {
-            setErrors({ email: "Bu email adresi zaten kullanılıyor" });
+            setError("email", { message: "Bu email adresi zaten kullanılıyor" });
           } else if (apiMessage.includes("username")) {
-            setErrors({ username: "Bu kullanıcı adı zaten kullanılıyor" });
+            setError("username", { message: "Bu kullanıcı adı zaten kullanılıyor" });
           } else {
-            setErrors({ submit: apiMessage });
+            setSubmitError(apiMessage);
           }
         } else {
-          setErrors({ submit: apiMessage });
+          setSubmitError(apiMessage);
         }
       } else {
-        setErrors({ submit: errorMessage });
+        setSubmitError(errorMessage);
       }
     }
   };
 
-  const handleInputChange = (field: keyof CreateUserRequest, value: string | boolean | File) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-    if (errors.submit) {
-      setErrors(prev => ({ ...prev, submit: undefined }));
-    }
-  };
-
-  const isFormDisabled = createUserMutation.isPending;
+  const isFormDisabled = createUserMutation.isPending || isSubmitting;
 
   return (
     <div className="min-h-screen w-full">
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 w-full">
-        <div className="px-8 py-4">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button variant="default" size="sm" onClick={() => navigate("/users")}>
@@ -175,7 +105,7 @@ export default function UserCreatePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center space-x-2 pb-2 border-b">
                   <User className="w-4 h-4 text-gray-600" />
@@ -190,8 +120,7 @@ export default function UserCreatePage() {
                       <Input
                         id="username"
                         placeholder="Kullanıcı adı"
-                        value={formData.username}
-                        onChange={(e) => handleInputChange("username", e.target.value)}
+                        {...register("username")}
                         disabled={isFormDisabled}
                         className={`pl-10 ${errors.username ? "border-red-500" : ""}`}
                       />
@@ -207,8 +136,7 @@ export default function UserCreatePage() {
                         id="email"
                         type="email"
                         placeholder="ornek@email.com"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange("email", e.target.value)}
+                        {...register("email")}
                         disabled={isFormDisabled}
                         className={`pl-10 ${errors.email ? "border-red-500" : ""}`}
                       />
@@ -224,8 +152,7 @@ export default function UserCreatePage() {
                         id="password"
                         type="password"
                         placeholder="En az 6 karakter"
-                        value={formData.password}
-                        onChange={(e) => handleInputChange("password", e.target.value)}
+                        {...register("password")}
                         disabled={isFormDisabled}
                         className={`pl-10 ${errors.password ? "border-red-500" : ""}`}
                       />
@@ -240,8 +167,7 @@ export default function UserCreatePage() {
                     <Input
                       id="firstName"
                       placeholder="Ad"
-                      value={formData.firstName}
-                      onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      {...register("firstName")}
                       disabled={isFormDisabled}
                       className={errors.firstName ? "border-red-500" : ""}
                     />
@@ -253,8 +179,7 @@ export default function UserCreatePage() {
                     <Input
                       id="lastName"
                       placeholder="Soyad"
-                      value={formData.lastName}
-                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      {...register("lastName")}
                       disabled={isFormDisabled}
                       className={errors.lastName ? "border-red-500" : ""}
                     />
@@ -274,8 +199,7 @@ export default function UserCreatePage() {
                     <Label htmlFor="role">Rol</Label>
                     <select
                       id="role"
-                      value={formData.role || "USER"}
-                      onChange={(e) => handleInputChange("role", e.target.value)}
+                      {...register("role")}
                       disabled={isFormDisabled}
                       className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
@@ -291,15 +215,14 @@ export default function UserCreatePage() {
                       <input
                         id="isActive"
                         type="checkbox"
-                        checked={formData.isActive || false}
-                        onChange={(e) => handleInputChange("isActive", e.target.checked)}
+                        {...register("isActive")}
                         disabled={isFormDisabled}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-2"
                       />
                       <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${formData.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <div className={`w-2 h-2 rounded-full ${watch("isActive") ? 'bg-green-500' : 'bg-red-500'}`} />
                         <Label htmlFor="isActive" className="cursor-pointer">
-                          {formData.isActive ? 'Aktif' : 'Pasif'}
+                          {watch("isActive") ? 'Aktif' : 'Pasif'}
                         </Label>
                       </div>
                     </div>
@@ -318,8 +241,7 @@ export default function UserCreatePage() {
                   <textarea
                     id="bio"
                     placeholder="Kullanıcı hakkında kısa bilgi..."
-                    value={formData.bio || ""}
-                    onChange={(e) => handleInputChange("bio", e.target.value)}
+                    {...register("bio")}
                     disabled={isFormDisabled}
                     rows={3}
                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -336,7 +258,7 @@ export default function UserCreatePage() {
                         accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) handleInputChange("profileImage", file);
+                          if (file) setValue("profileImage", file);
                         }}
                         disabled={isFormDisabled}
                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700"
@@ -349,9 +271,9 @@ export default function UserCreatePage() {
                 </div>
               </div>
 
-              {errors.submit && (
+              {submitError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-sm text-red-600">{errors.submit}</p>
+                  <p className="text-sm text-red-600">{submitError}</p>
                 </div>
               )}
 

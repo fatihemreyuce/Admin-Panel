@@ -4,7 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { 
+	Pagination, 
+	PaginationContent, 
+	PaginationItem, 
+	PaginationLink, 
+	PaginationNext, 
+	PaginationPrevious,
+	PaginationEllipsis
+} from "@/components/ui/pagination";
 import { DeleteModal } from "@/components/ui/modal";
 import { useUserList, useDeleteUserById } from "@/hooks/use-user";
 import { 
@@ -21,7 +29,7 @@ import {
 export default function UsersListPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
-  const [size] = useState(10);
+  const [size] = useState(3); // Test için küçük sayfa boyutu
   const [sort] = useState("id,asc");
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -35,6 +43,51 @@ export default function UsersListPage() {
 
   const { data: usersData, isLoading, error } = useUserList(search, page, size, sort);
   const deleteUserMutation = useDeleteUserById();
+
+  // Pagination logic
+  const totalPages = usersData?.page?.totalPages || 0;
+  const currentPage = usersData?.page?.number || 0;
+  const hasNext = currentPage < totalPages - 1;
+  const hasPrevious = currentPage > 0;
+
+  const generatePageNumbers = () => {
+    const pages = [];
+    const totalPagesCount = totalPages;
+    const current = currentPage;
+
+    // Always show first page
+    if (totalPagesCount > 0) {
+      pages.push(0);
+    }
+
+    // Show pages around current page
+    const start = Math.max(1, current - 1);
+    const end = Math.min(totalPagesCount - 1, current + 1);
+
+    // Add ellipsis if there's a gap
+    if (start > 1) {
+      pages.push("ellipsis-start");
+    }
+
+    // Add pages around current
+    for (let i = start; i <= end; i++) {
+      if (i !== 0 && i !== totalPagesCount - 1) {
+        pages.push(i);
+      }
+    }
+
+    // Add ellipsis if there's a gap
+    if (end < totalPagesCount - 1) {
+      pages.push("ellipsis-end");
+    }
+
+    // Always show last page (if more than 1 page)
+    if (totalPagesCount > 1) {
+      pages.push(totalPagesCount - 1);
+    }
+
+    return pages;
+  };
 
   const handleDeleteClick = (userId: number, username: string) => {
     setDeleteModal({
@@ -70,11 +123,6 @@ export default function UsersListPage() {
     setPage(0); // Reset to first page when searching
   };
 
-  const goToPage = (newPage: number) => {
-    if (newPage >= 0 && newPage < (usersData?.page.totalPages || 0)) {
-      setPage(newPage);
-    }
-  };
 
   if (error) {
     return (
@@ -95,7 +143,7 @@ export default function UsersListPage() {
     <div className="min-h-screen">
       {/* Header Section */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="px-4 py-2">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
@@ -264,45 +312,41 @@ export default function UsersListPage() {
         </CardContent>
       </Card>
 
+       
+
         {/* Pagination */}
-        {usersData && usersData.page.totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              Sayfa {usersData.page.number + 1} / {usersData.page.totalPages}
-              <span className="ml-2">
-                ({usersData.page.totalElements} toplam kullanıcı)
-              </span>
-            </div>
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-6">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => goToPage(page - 1)}
-                    className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  <PaginationPrevious
+                    onClick={() => hasPrevious && setPage(currentPage - 1)}
+                    className={!hasPrevious ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
                 </PaginationItem>
-                
-                {/* Page Numbers */}
-                {Array.from({ length: Math.min(5, usersData.page.totalPages) }, (_, i) => {
-                  const pageNumber = i;
-                  return (
-                    <PaginationItem key={pageNumber}>
+
+                {generatePageNumbers().map((pageNum, index) => (
+                  <PaginationItem key={index}>
+                    {pageNum === "ellipsis-start" || pageNum === "ellipsis-end" ? (
+                      <PaginationEllipsis />
+                    ) : (
                       <PaginationLink
-                        onClick={() => goToPage(pageNumber)}
-                        isActive={page === pageNumber}
+                        onClick={() => setPage(pageNum as number)}
+                        isActive={pageNum === currentPage}
                         className="cursor-pointer"
                       >
-                        {pageNumber + 1}
+                        {(pageNum as number) + 1}
                       </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-                
+                    )}
+                  </PaginationItem>
+                ))}
+
                 <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => goToPage(page + 1)}
-                    className={page >= usersData.page.totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                  />  
+                  <PaginationNext
+                    onClick={() => hasNext && setPage(currentPage + 1)}
+                    className={!hasNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>

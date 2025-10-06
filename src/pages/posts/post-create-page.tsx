@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,36 +28,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import type { PostRequest, TranslationRequest } from "@/types/post.types";
-
-// Zod şeması
-const blogSchema = z.object({
-	slug: z
-		.string()
-		.min(1, "Slug gereklidir")
-		.regex(/^[a-z0-9-]+$/, "Slug sadece küçük harf, rakam ve tire içerebilir"),
-	categoryId: z
-		.number()
-		.min(1, "Kategori seçimi gereklidir"),
-	status: z.enum(["DRAFT", "PUBLISHED"]),
-	translations: z
-		.array(
-			z.object({
-				languageCode: z
-					.string()
-					.min(1, "Dil kodu gereklidir"),
-				title: z
-					.string()
-					.min(1, "Blog başlığı gereklidir"),
-				expert: z
-					.string()
-					.min(1, "Özet gereklidir"),
-				content: z
-					.string()
-					.min(1, "İçerik gereklidir"),
-			})
-		)
-		.min(1, "En az bir dil çevirisi gereklidir"),
-});
+import { postCreateSchema } from "@/validations";
 
 export default function PostCreatePage() {
 	const navigate = useNavigate();
@@ -87,6 +58,15 @@ export default function PostCreatePage() {
 		image: null as any,
 	});
 
+	const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+	// revoke object URL on unmount or change
+	useEffect(() => {
+		return () => {
+			if (imagePreview) URL.revokeObjectURL(imagePreview);
+		};
+	}, [imagePreview]);
+
 	const [errors, setErrors] = useState<{
 		slug?: string;
 		categoryId?: string;
@@ -96,7 +76,7 @@ export default function PostCreatePage() {
 
 	const validateForm = (): boolean => {
 		try {
-			blogSchema.parse(formData);
+			postCreateSchema.parse(formData);
 			setErrors({});
 			return true;
 		} catch (error) {
@@ -393,16 +373,24 @@ export default function PostCreatePage() {
 													type="file"
 													accept="image/*"
 													onChange={(e) => {
-														const file = e.target.files?.[0];
-														if (file) handleInputChange("image", file);
+									const file = e.target.files?.[0];
+									if (file) {
+										if (imagePreview) URL.revokeObjectURL(imagePreview);
+										setImagePreview(URL.createObjectURL(file));
+										handleInputChange("image", file);
+									}
 													}}
 													disabled={isFormDisabled}
 													className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700"
 												/>
 											</div>
-											<div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-												<Image className="w-8 h-8 text-gray-400" />
-											</div>
+						<div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+							{imagePreview ? (
+								<img src={imagePreview} alt="Önizleme" className="w-full h-full object-cover" />
+							) : (
+								<Image className="w-8 h-8 text-gray-400" />
+							)}
+						</div>
 										</div>
 									</div>
 								</div>

@@ -13,13 +13,22 @@ import {
 } from "@/components/ui/table";
 import { DeleteModal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
+import {
+	Pagination,
+	PaginationContent,
+	PaginationItem,
+	PaginationLink,
+	PaginationNext,
+	PaginationPrevious,
+	PaginationEllipsis,
+} from "@/components/ui/pagination";
 import { usePosts, useDeletePost } from "@/hooks/use-post";
 import { Search, Plus, Edit, Trash2, Eye, FileText, Tag } from "lucide-react";
 
 export default function PostListPage() {
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(0);
-	const [size] = useState(10);
+	const [size] = useState(3); // Test için küçük sayfa boyutu
 	const [sort] = useState("id,asc");
 	const [deleteModal, setDeleteModal] = useState<{
 		isOpen: boolean;
@@ -38,6 +47,51 @@ export default function PostListPage() {
 	} = usePosts(search, page, size, sort);
 	const postsData = postsResponse?.content || [];
 	const deletePostMutation = useDeletePost(deleteModal.postId);
+
+	// Pagination logic
+	const totalPages = postsResponse?.page?.totalPages || 0;
+	const currentPage = postsResponse?.page?.number || 0;
+	const hasNext = currentPage < totalPages - 1;
+	const hasPrevious = currentPage > 0;
+
+	const generatePageNumbers = () => {
+		const pages = [];
+		const totalPagesCount = totalPages;
+		const current = currentPage;
+
+		// Always show first page
+		if (totalPagesCount > 0) {
+			pages.push(0);
+		}
+
+		// Show pages around current page
+		const start = Math.max(1, current - 1);
+		const end = Math.min(totalPagesCount - 1, current + 1);
+
+		// Add ellipsis if there's a gap
+		if (start > 1) {
+			pages.push("ellipsis-start");
+		}
+
+		// Add pages around current
+		for (let i = start; i <= end; i++) {
+			if (i !== 0 && i !== totalPagesCount - 1) {
+				pages.push(i);
+			}
+		}
+
+		// Add ellipsis if there's a gap
+		if (end < totalPagesCount - 1) {
+			pages.push("ellipsis-end");
+		}
+
+		// Always show last page (if more than 1 page)
+		if (totalPagesCount > 1) {
+			pages.push(totalPagesCount - 1);
+		}
+
+		return pages;
+	};
 
 	const handleDeleteClick = (postId: number, postTitle: string) => {
 		setDeleteModal({
@@ -109,7 +163,7 @@ export default function PostListPage() {
 	return (
 		<div className="min-h-screen">
 			<div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-				<div className="px-4 py-2">
+				<div className="px-6 py-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center space-x-3">
 							<div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
@@ -328,6 +382,55 @@ export default function PostListPage() {
 						)}
 					</CardContent>
 				</Card>
+
+				{/* Debug Info */}
+				<div className="mt-4 p-2 bg-yellow-100 rounded text-sm border">
+					<strong>Debug Info:</strong><br/>
+					totalPages: {totalPages}<br/>
+					currentPage: {currentPage}<br/>
+					hasNext: {hasNext ? 'true' : 'false'}<br/>
+					hasPrevious: {hasPrevious ? 'true' : 'false'}<br/>
+					Total Elements: {postsResponse?.page?.totalElements || 0}
+				</div>
+
+				{/* Pagination - Always Show for Testing */}
+				{totalPages >= 1 && (
+					<div className="flex justify-center mt-6">
+						<Pagination>
+							<PaginationContent>
+								<PaginationItem>
+									<PaginationPrevious
+										onClick={() => hasPrevious && setPage(currentPage - 1)}
+										className={!hasPrevious ? "pointer-events-none opacity-50" : "cursor-pointer"}
+									/>
+								</PaginationItem>
+
+								{generatePageNumbers().map((pageNum, index) => (
+									<PaginationItem key={index}>
+										{pageNum === "ellipsis-start" || pageNum === "ellipsis-end" ? (
+											<PaginationEllipsis />
+										) : (
+											<PaginationLink
+												onClick={() => setPage(pageNum as number)}
+												isActive={pageNum === currentPage}
+												className="cursor-pointer"
+											>
+												{(pageNum as number) + 1}
+											</PaginationLink>
+										)}
+									</PaginationItem>
+								))}
+
+								<PaginationItem>
+									<PaginationNext
+										onClick={() => hasNext && setPage(currentPage + 1)}
+										className={!hasNext ? "pointer-events-none opacity-50" : "cursor-pointer"}
+									/>
+								</PaginationItem>
+							</PaginationContent>
+						</Pagination>
+					</div>
+				)}
 			</div>
 
 			{/* Delete Modal */}
